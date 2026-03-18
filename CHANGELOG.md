@@ -16,3 +16,7 @@
 - Entry: "Added historical data migration script with idempotency,
   per-year verification report, and spot check against expected counts."
 
+## Version 0.1.3
+- Date: 2026-03-18
+- Entry: "Redefined data_quality to use 4 enrichment fields (genre, length_secs, bpm, release_year) instead of 8. play_time and play_order are operational fields, not data quality signals."
+

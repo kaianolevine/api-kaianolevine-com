@@ -132,3 +132,77 @@ async def test_reconciliation_confidence_escalation(async_engine) -> None:
         )
         assert len(track_rows) == 2
         assert track_rows[1].catalog_id == catalog.id
+
+
+async def test_reconciliation_data_quality_enrichment_fields(async_engine) -> None:
+    owner_id = "dev-owner"
+    sessionmaker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
+
+    set_date = date(2026, 3, 8)
+    raw_title = "My Boo"
+    raw_artist = "Artist"
+
+    async with sessionmaker() as session:
+        db_set = DbSet(owner_id=owner_id, set_date=set_date, venue="MADjam", source_file="test2.csv")
+        session.add(db_set)
+        await session.flush()
+
+        ingest_minimal = IngestTrack(
+            play_order=1,
+            play_time=None,
+            title=raw_title,
+            artist=raw_artist,
+            genre=None,
+            bpm=None,
+            release_year=None,
+            length_secs=None,
+            label=None,
+            remix=None,
+            comment=None,
+        )
+        ingest_partial = IngestTrack(
+            play_order=2,
+            play_time=None,
+            title=raw_title,
+            artist=raw_artist,
+            genre="R&B",
+            bpm=None,
+            release_year=None,
+            length_secs=None,
+            label=None,
+            remix=None,
+            comment=None,
+        )
+        ingest_complete = IngestTrack(
+            play_order=3,
+            play_time=None,
+            title=raw_title,
+            artist=raw_artist,
+            genre="R&B",
+            bpm=100.0,
+            release_year=2019,
+            length_secs=180,
+            label=None,
+            remix=None,
+            comment=None,
+        )
+
+        await reconcile_set_tracks(
+            session=session,
+            owner_id=owner_id,
+            set_id=db_set.id,
+            set_date=set_date,
+            tracks=[ingest_minimal, ingest_partial, ingest_complete],
+        )
+
+        await session.flush()
+
+        track_rows = (
+            await session.execute(
+                select(DbTrack)
+                .where(DbTrack.set_id == db_set.id)
+                .order_by(DbTrack.play_order.asc())
+            )
+        ).scalars().all()
+
+        assert [t.data_quality for t in track_rows] == ["minimal", "partial", "complete"]

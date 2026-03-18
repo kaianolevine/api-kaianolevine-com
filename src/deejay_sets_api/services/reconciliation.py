@@ -22,27 +22,27 @@ class ReconciliationResult:
     catalog_unchanged: int
 
 
-def _data_quality_for_ingest_track(track: IngestTrack) -> str:
-    # Core fields used to assess completeness for later matching/enrichment.
-    core = [
-        track.title,
-        track.artist,
-        track.genre,
-        track.bpm,
-        track.release_year,
-        track.length_secs,
-        track.play_time,
-        track.play_order,
-    ]
-    populated = sum(1 for v in core if v is not None)
+Track = IngestTrack
 
-    if populated == 2:
+
+def _data_quality_for_track(track: Track) -> str:
+    """
+    Assess data quality based only on meaningful enrichment fields
+    present in the CSV source data.
+
+    minimal  — title + artist only, no enrichment fields
+    partial  — some enrichment fields present
+    complete — all four enrichment fields present:
+               genre, length_secs, bpm, release_year
+    """
+
+    enrichment = [track.genre, track.bpm, track.release_year, track.length_secs]
+    populated = sum(1 for v in enrichment if v is not None)
+
+    if populated == 0:
         return "minimal"
-    if populated == 8:
+    if populated == 4:
         return "complete"
-    # The design doc uses 3-6 populated fields => partial; other cases are also partial.
-    if 3 <= populated <= 6:
-        return "partial"
     return "partial"
 
 
@@ -135,7 +135,7 @@ async def reconcile_set_tracks(
             length_secs=ingest_track.length_secs,
             data_quality=None,
         )
-        db_track.data_quality = _data_quality_for_ingest_track(ingest_track)
+        db_track.data_quality = _data_quality_for_track(ingest_track)
         session.add(db_track)
 
         catalog = catalog_by_pair.get(pair)
