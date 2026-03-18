@@ -1,0 +1,17 @@
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Local env files
+.env
+.env.*
+
+# Sentry artifacts
+.sentryclirc
+

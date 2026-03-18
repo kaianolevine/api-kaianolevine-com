@@ -1,0 +1,16 @@
+fastapi<1.0,>=0.110
+uvicorn[standard]<1.0,>=0.27
+sqlalchemy[asyncio]<3.0,>=2.0
+asyncpg<1.0,>=0.29
+pydantic<3.0,>=2.6
+pydantic-settings<3.0,>=2.2
+sentry-sdk[fastapi]<3.0,>=2.0
+
+[dev]
+pytest<9.0,>=8.0
+pytest-asyncio<1.0,>=0.23
+pytest-cov<6.0,>=5.0
+httpx<1.0,>=0.27
+aiosqlite<1.0,>=0.20
+pre-commit<4.0,>=3.6
+ruff<1.0,>=0.7

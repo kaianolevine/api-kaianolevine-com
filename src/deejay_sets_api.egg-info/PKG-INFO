@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: deejay-sets-api
+Version: 0.1.0
+Summary: FastAPI service for sets, tracks, catalog reconciliation, and pipeline evaluations.
+Requires-Python: >=3.11
+Requires-Dist: fastapi<1.0,>=0.110
+Requires-Dist: uvicorn[standard]<1.0,>=0.27
+Requires-Dist: sqlalchemy[asyncio]<3.0,>=2.0
+Requires-Dist: asyncpg<1.0,>=0.29
+Requires-Dist: pydantic<3.0,>=2.6
+Requires-Dist: pydantic-settings<3.0,>=2.2
+Requires-Dist: sentry-sdk[fastapi]<3.0,>=2.0
+Provides-Extra: dev
+Requires-Dist: pytest<9.0,>=8.0; extra == "dev"
+Requires-Dist: pytest-asyncio<1.0,>=0.23; extra == "dev"
+Requires-Dist: pytest-cov<6.0,>=5.0; extra == "dev"
+Requires-Dist: httpx<1.0,>=0.27; extra == "dev"
+Requires-Dist: aiosqlite<1.0,>=0.20; extra == "dev"
+Requires-Dist: pre-commit<4.0,>=3.6; extra == "dev"
+Requires-Dist: ruff<1.0,>=0.7; extra == "dev"

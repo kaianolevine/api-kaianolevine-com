@@ -1,0 +1,11 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.1
+    hooks:
+      - id: ruff
+        pass_filenames: false
+        entry: bash -c "cd deejay-sets-api && ruff check --fix src tests"
+      - id: ruff-format
+        pass_filenames: false
+        entry: bash -c "cd deejay-sets-api && ruff format src tests"
+
