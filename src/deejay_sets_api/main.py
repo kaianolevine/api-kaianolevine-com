@@ -93,4 +93,5 @@ async def _startup() -> None:
         dsn=settings.SENTRY_DSN,
         integrations=[FastApiIntegration()],
         environment=settings.ENVIRONMENT,
+        traces_sample_rate=1.0,
     )
