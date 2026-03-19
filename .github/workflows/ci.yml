@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches: [main]
@@ -30,4 +31,3 @@ jobs:
 
       - name: Test
         run: uv run pytest --cov=src --cov-report=term-missing
-
