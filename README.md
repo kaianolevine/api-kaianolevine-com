@@ -33,6 +33,23 @@ uv run uvicorn src.deejay_sets_api.main:app --reload
 uv run pytest --cov=src --cov-report=term-missing
 ```
 
+## CI/CD
+
+Every push to `main` runs CI (lint + tests).
+Railway auto-deploys on push to `main`.
+Feature flags control activation without deployment.
+Flags are managed via `PATCH /v1/flags/{name}`.
+
+### Production Flag Rollback
+
+Use flags for safe rollout and fast rollback without redeploying:
+
+- Enable one flag change at a time via `PATCH /v1/flags/{name}`.
+- Verify health immediately after change (API status, error logs, and endpoint behavior).
+- If regressions appear, rollback by patching the same flag back to `enabled: false` (or `true` for previously disabled flags).
+- Prefer changing ingest-related flags during low-traffic windows and monitor pipeline runs for 5-10 minutes after each change.
+- Record each production flag flip in deployment notes (flag name, old/new value, timestamp, operator).
+
 ## Deployment Target
 
 Designed for Railway.

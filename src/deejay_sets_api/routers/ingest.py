@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_current_owner, get_settings
 from ..database import get_db_session
 from ..models import Set as DbSet
 from ..schemas import Envelope, IngestResponseData, IngestSet, success_envelope
+from ..services.flags import is_enabled
 from ..services.reconciliation import reconcile_set_tracks
 
 router = APIRouter()
@@ -24,6 +25,11 @@ async def ingest_set(
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[IngestResponseData]:
     settings = get_settings()
+    if not await is_enabled("flags.deejay_api.ingest_enabled", session):
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "feature_disabled", "message": "Ingest is currently disabled"},
+        )
 
     db_set = DbSet(
         owner_id=owner_id,

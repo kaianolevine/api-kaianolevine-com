@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from typing import Annotated
-from sqlalchemy import case
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_current_owner, get_settings

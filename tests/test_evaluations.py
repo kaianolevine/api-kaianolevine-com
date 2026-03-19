@@ -22,7 +22,9 @@ async def test_evaluations_endpoints(client) -> None:
             "severity": "ERROR",
             "run_id": "run-123",
             "finding": "Pipeline did not complete ingestion as expected.",
-            "suggestion": "Ensure the ingest step is called and fails fast on unrecoverable errors.",
+            "suggestion": (
+                "Ensure the ingest step is called and fails fast on unrecoverable errors."
+            ),
             "standards_version": "6.0",
         },
     )

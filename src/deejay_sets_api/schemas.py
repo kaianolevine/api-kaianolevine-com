@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Any, Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
@@ -172,6 +172,22 @@ class EvaluationSummaryItem(BaseModel):
     warn_count: int
     info_count: int
     most_recent: dt.datetime | None
+
+
+class FeatureFlagItem(BaseModel):
+    id: uuid.UUID
+    owner_id: str
+    name: str
+    enabled: bool
+    description: str | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class FeatureFlagPatch(BaseModel):
+    enabled: bool
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class StatsOverview(BaseModel):

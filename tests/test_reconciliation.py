@@ -143,7 +143,12 @@ async def test_reconciliation_data_quality_enrichment_fields(async_engine) -> No
     raw_artist = "Artist"
 
     async with sessionmaker() as session:
-        db_set = DbSet(owner_id=owner_id, set_date=set_date, venue="MADjam", source_file="test2.csv")
+        db_set = DbSet(
+            owner_id=owner_id,
+            set_date=set_date,
+            venue="MADjam",
+            source_file="test2.csv",
+        )
         session.add(db_set)
         await session.flush()
 

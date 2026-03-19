@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from deejay_sets_api.models import FeatureFlag as DbFeatureFlag
+
 
 def _payload(set_date: str, venue: str, source_file: str, tracks: list[dict]) -> dict:
     return {"set_date": set_date, "venue": venue, "source_file": source_file, "tracks": tracks}
@@ -112,3 +116,28 @@ async def test_ingest_reconciliation_confidence_escalation(client) -> None:
     assert bad.status_code == 422
     bad_json = bad.json()
     assert bad_json["error"]["code"] == "validation_error"
+
+
+async def test_ingest_respects_feature_flag_disable(client, async_engine) -> None:
+    sessionmaker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
+    async with sessionmaker() as session:
+        session.add(
+            DbFeatureFlag(
+                owner_id="dev-owner",
+                name="flags.deejay_api.ingest_enabled",
+                enabled=False,
+                description="Disable ingest endpoint",
+            )
+        )
+        await session.commit()
+
+    payload = _payload(
+        "2026-03-08",
+        "MADjam",
+        "2026-03-08 MADjam.csv",
+        [{"play_order": 1, "title": "Song A", "artist": "Artist A"}],
+    )
+    resp = await client.post("/v1/ingest", json=payload)
+    assert resp.status_code == 503
+    err = resp.json()
+    assert err["error"]["code"] == "feature_disabled"

@@ -35,3 +35,10 @@
   Updated POST /v1/evaluations to accept structured findings.
   Updated GET /v1/evaluations and summary endpoints."
 
+## Version 0.3.0
+- Date: 2026-03-19
+- Entry: "Added CI workflow (lint + test on every push/PR). Added
+  feature_flags table with three initial flags. Added
+  GET /v1/flags and PATCH /v1/flags/{name} endpoints.
+  Added flag check to ingest endpoint."
+
