@@ -46,13 +46,16 @@ async def test_sets_endpoints_contract(client) -> None:
     assert "data" in list_json and "meta" in list_json
     assert list_json["meta"]["version"] == "1.0"
     assert list_json["meta"]["count"] == len(list_json["data"])
-    assert any(item["id"] == set_id for item in list_json["data"])
+    matching = next(item for item in list_json["data"] if item["id"] == set_id)
+    assert "track_count" in matching
+    assert matching["track_count"] == 2
 
     # Set detail includes ordered track list.
     detail_resp = await client.get(f"/v1/sets/{set_id}")
     assert detail_resp.status_code == 200
     detail = detail_resp.json()["data"]
     assert detail["venue"] == "MADjam"
+    assert detail["track_count"] == 2
     assert len(detail["tracks"]) == 2
     assert detail["tracks"][0]["play_order"] == 1
     assert detail["tracks"][1]["play_order"] == 2

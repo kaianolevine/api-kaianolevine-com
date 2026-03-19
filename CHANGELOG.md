@@ -20,3 +20,12 @@
 - Date: 2026-03-18
 - Entry: "Redefined data_quality to use 4 enrichment fields (genre, length_secs, bpm, release_year) instead of 8. play_time and play_order are operational fields, not data quality signals."
 
+## Version 0.1.5
+- Date: 2026-03-19
+- Entry: "Added track_count to SetListItem and SetDetail responses."
+
+## Version 0.1.6
+- Date: 2026-03-19
+- Entry: "Added CORSMiddleware. Configurable via CORS_ORIGINS
+  environment variable."
+

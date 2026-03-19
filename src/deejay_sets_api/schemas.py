@@ -36,6 +36,7 @@ class SetListItem(BaseModel):
     year: int
     venue: str
     source_file: str | None = None
+    track_count: int = 0
 
 
 class TrackListItem(BaseModel):
@@ -71,6 +72,7 @@ class SetDetail(BaseModel):
     year: int
     venue: str
     source_file: str | None = None
+    track_count: int = 0
     tracks: list[SetTrackListItem]
 
 

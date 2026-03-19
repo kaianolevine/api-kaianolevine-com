@@ -5,6 +5,7 @@ from typing import Any
 import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
@@ -17,6 +18,14 @@ def _build_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(title="deejay-sets-api", version=settings.API_VERSION)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH"],
+        allow_headers=["*"],
+    )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:

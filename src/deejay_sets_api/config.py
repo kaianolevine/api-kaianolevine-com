@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0"
     OWNER_ID: str = "dev-owner"
     SENTRY_DSN: str | None = None
+    CORS_ORIGINS: list[str] = ["*"]
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

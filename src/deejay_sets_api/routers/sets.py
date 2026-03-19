@@ -38,7 +38,22 @@ async def list_sets(
         date_from = dt.date(year, 1, 1)
         date_to = dt.date(year, 12, 31)
 
-    stmt = select(DbSet)
+    track_counts = (
+        select(DbTrack.set_id, func.count(DbTrack.id).label("track_count"))
+        .group_by(DbTrack.set_id)
+        .subquery()
+    )
+
+    stmt = (
+        select(
+            DbSet.id,
+            DbSet.set_date,
+            DbSet.venue,
+            DbSet.source_file,
+            func.coalesce(track_counts.c.track_count, 0).label("track_count"),
+        )
+        .outerjoin(track_counts, DbSet.id == track_counts.c.set_id)
+    )
     if venue:
         stmt = stmt.where(func.lower(DbSet.venue).like(f"%{venue.lower()}%"))
     if date_from:
@@ -47,17 +62,18 @@ async def list_sets(
         stmt = stmt.where(DbSet.set_date <= date_to)
 
     stmt = stmt.order_by(DbSet.set_date.desc()).limit(limit).offset(offset)
-    rows = (await session.execute(stmt)).scalars().all()
+    rows = (await session.execute(stmt)).all()
 
     data = [
         SetListItem(
-            id=row.id,
-            set_date=row.set_date,
-            year=row.set_date.year,
-            venue=row.venue,
-            source_file=row.source_file,
+            id=set_id,
+            set_date=set_date,
+            year=set_date.year,
+            venue=set_venue,
+            source_file=source_file,
+            track_count=track_count,
         )
-        for row in rows
+        for set_id, set_date, set_venue, source_file, track_count in rows
     ]
 
     return success_envelope(data, count=len(data), version=settings.API_VERSION)
@@ -113,6 +129,7 @@ async def get_set(
         year=set_row.set_date.year,
         venue=set_row.venue,
         source_file=set_row.source_file,
+        track_count=len(tracks),
         tracks=[
             _track_to_item(t, set_venue=set_row.venue, set_date=set_row.set_date) for t in tracks
         ],

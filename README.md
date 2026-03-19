@@ -17,6 +17,7 @@ FastAPI service providing:
 ### Environment
 
 Copy `.env.example` to `.env` and adjust values as needed.
+In production, set `CORS_ORIGINS` to the specific Cloudflare Pages domain(s) rather than using the wildcard (`*`).
 
 ## Run the Server
 
