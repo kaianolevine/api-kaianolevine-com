@@ -1,6 +1,6 @@
 [project]
 name = "deejay-sets-api"
-version = "0.3.1"
+version = "1.0.0"
 description = "FastAPI service for sets, tracks, catalog reconciliation, and pipeline evaluations."
 requires-python = ">=3.11"
 dependencies = [

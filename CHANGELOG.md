@@ -1,3 +1,10 @@
+# 1.0.0 (2026-03-22)
+
+
+### Bug Fixes
+
+* add missing endpoints to CORS documentation ([3175cd6](https://github.com/kaianolevine/deejay-marvel-api/commit/3175cd6c506b61091e613eecdf93b538876c1d96))
+
 # Changelog
 
 ## [0.3.1] - 2026-03-19
