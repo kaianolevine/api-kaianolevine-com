@@ -1,7 +1,27 @@
 from __future__ import annotations
 
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-async def test_live_plays_simple_insert_skip_and_recent(client) -> None:
+
+async def test_live_plays_simple_insert_skip_and_recent(client, monkeypatch) -> None:
+    class _SQLiteInsertAdapter:
+        def __init__(self, table):
+            self._stmt = sqlite_insert(table)
+
+        def values(self, **kwargs):
+            self._stmt = self._stmt.values(**kwargs)
+            return self
+
+        def on_conflict_do_nothing(self, constraint):  # noqa: ARG002
+            return self._stmt.on_conflict_do_nothing(
+                index_elements=["owner_id", "title", "artist", "played_at"]
+            )
+
+    monkeypatch.setattr(
+        "deejay_sets_api.routers.live_plays.pg_insert",
+        lambda table: _SQLiteInsertAdapter(table),
+    )
+
     payload = {
         "plays": [
             {

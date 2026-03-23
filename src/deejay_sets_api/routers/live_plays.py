@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_current_owner, get_settings
@@ -43,37 +42,19 @@ async def ingest_live_plays(
     skipped = 0
 
     for play in payload.plays:
-        if session.bind and session.bind.dialect.name == "postgresql":
-            stmt = pg_insert(DbLivePlay).values(
-                owner_id=owner_id,
-                played_at=play.played_at,
-                title=play.title,
-                artist=play.artist,
-            ).on_conflict_do_nothing(
-                constraint="uq_live_plays_owner_title_artist_played_at"
-            )
-            result = await session.execute(stmt)
-            if result.rowcount == 1:
-                inserted += 1
-            else:
-                skipped += 1
-            continue
-
-        # SQLite tests use in-memory DB; emulate ON CONFLICT DO NOTHING.
-        async with session.begin_nested():
-            try:
-                session.add(
-                    DbLivePlay(
-                        owner_id=owner_id,
-                        played_at=play.played_at,
-                        title=play.title,
-                        artist=play.artist,
-                    )
-                )
-                await session.flush()
-                inserted += 1
-            except IntegrityError:
-                skipped += 1
+        stmt = pg_insert(DbLivePlay).values(
+            owner_id=owner_id,
+            played_at=play.played_at,
+            title=play.title,
+            artist=play.artist,
+        ).on_conflict_do_nothing(
+            constraint="uq_live_plays_owner_title_artist_played_at"
+        )
+        result = await session.execute(stmt)
+        if result.rowcount == 1:
+            inserted += 1
+        else:
+            skipped += 1
 
     await session.commit()
     data = LivePlaysResponseData(inserted=inserted, skipped=skipped)
