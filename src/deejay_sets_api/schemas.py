@@ -276,6 +276,17 @@ class LivePlaysResponseData(BaseModel):
     skipped: int
 
 
+class PrefectWebhookPayload(BaseModel):
+    flow_run_id: str | None = None
+    flow_name: str | None = None
+    state_name: str | None = None
+    state_type: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
 def api_error(status_code: int, code: str, message: str) -> HTTPException:
     """
     Helper for raising errors with the standard `{ error: { code, message } }` envelope.
