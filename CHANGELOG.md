@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.2.0...v1.2.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* use pg_insert unconditionally in live plays router ([1455f73](https://github.com/kaianolevine/deejay-marvel-api/commit/1455f7324c3f6464b71b92e93f69e0ef9819abad))
+
 # [1.2.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.1.0...v1.2.0) (2026-03-23)
 
 
