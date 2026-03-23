@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.1.0...v1.2.0) (2026-03-23)
+
+
+### Features
+
+* fix inner joins to handle nullable set_id for orphaned live tracks ([8e8f093](https://github.com/kaianolevine/deejay-marvel-api/commit/8e8f0935abf8fe64fbc3c76d4f838e774b1f7f8d))
+
 # [1.1.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.0.0...v1.1.0) (2026-03-23)
 
 
