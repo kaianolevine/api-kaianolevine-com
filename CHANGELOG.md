@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.5.0...v1.5.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* adding duplicate detection at the api layer ([f8a54e6](https://github.com/kaianolevine/deejay-marvel-api/commit/f8a54e682e23531f9b7cc333833a861f7c1ff076))
+
 # [1.5.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.4.0...v1.5.0) (2026-03-23)
 
 
