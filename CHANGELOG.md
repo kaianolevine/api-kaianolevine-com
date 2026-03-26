@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.5.1...v1.6.0) (2026-03-26)
+
+
+### Features
+
+* migrating legacy api contact to this api for final migration of legacy functionality ([f9568db](https://github.com/kaianolevine/deejay-marvel-api/commit/f9568db6099f6f481b9886e6bf98f447de2138f8))
+
 ## [1.5.1](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.5.0...v1.5.1) (2026-03-24)
 
 
