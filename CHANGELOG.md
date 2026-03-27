@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/kaianolevine/api-kaianolevine-com/compare/v1.9.0...v1.10.0) (2026-03-27)
+
+
+### Features
+
+* reverting auth ([e464cee](https://github.com/kaianolevine/api-kaianolevine-com/commit/e464cee0a7793b2e6c421a5e8614671eb95457e4))
+
 # [1.9.0](https://github.com/kaianolevine/api-kaianolevine-com/compare/v1.8.0...v1.9.0) (2026-03-27)
 
 
