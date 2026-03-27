@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.10.0...v1.11.0) (2026-03-27)
+
+
+### Features
+
+* name and location restructure ([86c4c44](https://github.com/mini-app-polis/api-kaianolevine-com/commit/86c4c44a111471b2ba67728a45687f6839d0033c))
+
 # [1.10.0](https://github.com/kaianolevine/api-kaianolevine-com/compare/v1.9.0...v1.10.0) (2026-03-27)
 
 
