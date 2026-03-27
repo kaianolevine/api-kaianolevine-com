@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import Depends, Header
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,6 +11,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     API_VERSION: str = "1.0"
     OWNER_ID: str = "dev-owner"
+    CLERK_AUTH_ENABLED: bool = False
+    CLERK_JWKS_URL: str | None = None
     SENTRY_DSN: str | None = None
     CORS_ORIGINS: list[str] = ["*"]
 
@@ -39,15 +40,3 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-
-
-def get_current_owner(
-    x_owner_id: str | None = Header(default=None),
-    settings: Settings = Depends(get_settings),
-) -> str:
-    """
-    Reads owner from X-Owner-Id request header.
-    Falls back to settings.OWNER_ID if header not present.
-    TODO: Replace with Clerk JWT verification before production.
-    """
-    return x_owner_id or settings.OWNER_ID

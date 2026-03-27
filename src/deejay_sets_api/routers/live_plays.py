@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import get_current_owner, get_settings
+from ..auth import get_current_owner
+from ..config import get_settings
 from ..database import get_db_session
 from ..models import LivePlay as DbLivePlay
 from ..schemas import (

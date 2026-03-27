@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import get_current_owner, get_settings
+from ..auth import get_current_owner
+from ..config import get_settings
 from ..database import get_db_session
 from ..models import FeatureFlag as DbFeatureFlag
 from ..schemas import Envelope, FeatureFlagItem, FeatureFlagPatch, api_error, success_envelope

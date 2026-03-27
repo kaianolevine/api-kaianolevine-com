@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 
 import httpx
 import pytest
@@ -20,7 +20,10 @@ os.environ.setdefault("CONTACT_TO_EMAIL", "to@example.com")
 os.environ.setdefault("CONTACT_FROM_EMAIL", "from@example.com")
 os.environ.setdefault("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
 os.environ.setdefault("CORS_ORIGINS", '["https://kaianolevine.com"]')
+os.environ.setdefault("CLERK_AUTH_ENABLED", "false")
+os.environ.setdefault("CLERK_JWKS_URL", "")
 
+from deejay_sets_api.config import get_settings  # noqa: E402
 from deejay_sets_api.database import get_db_session  # noqa: E402
 from deejay_sets_api.main import app  # noqa: E402
 from deejay_sets_api.models import Base  # noqa: E402
@@ -45,6 +48,13 @@ async def create_tables(async_engine) -> AsyncIterator[None]:
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
+
+
+@pytest.fixture(autouse=True)
+def clear_settings_cache() -> Iterator[None]:
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)
