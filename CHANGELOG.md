@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.11.0...v1.12.0) (2026-03-27)
+
+
+### Features
+
+* wire mini_app_polis for logging and music normalization ([3a6f8ee](https://github.com/mini-app-polis/api-kaianolevine-com/commit/3a6f8eef3eb3a1375744b74b7ff9eca0922756d2))
+
 # [1.11.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.10.0...v1.11.0) (2026-03-27)
 
 
