@@ -6,6 +6,8 @@ import uuid
 from collections.abc import Iterable
 from datetime import date as dt_date
 
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,8 @@ from ..models import Track as DbTrack
 from ..models import TrackCatalog
 from ..schemas import IngestTrack
 from .normalization import normalize_for_matching
+
+log = logger_mod.get_logger()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -81,12 +85,13 @@ async def reconcile_set_tracks(
     tracks: Iterable[IngestTrack],
     is_reingestion: bool = False,
 ) -> ReconciliationResult:
+    ingest_tracks = list(tracks)
+    log.info("%s reconciling %s tracks for set_id=%s", LOG_START, len(ingest_tracks), set_id)
+
     catalog_new = 0
     catalog_updated = 0
     catalog_unchanged = 0
     tracks_inserted = 0
-
-    ingest_tracks = list(tracks)
 
     # Prefetch all catalogs matching the normalized (title, artist) pairs in this set.
     # This removes the per-track SELECT and speeds up reconciliation significantly.
@@ -237,6 +242,14 @@ async def reconcile_set_tracks(
             catalog_updated += 1
         else:
             catalog_unchanged += 1
+
+    log.info(
+        "%s reconciliation done catalog_new=%s updated=%s tracks=%s",
+        LOG_SUCCESS,
+        catalog_new,
+        catalog_updated,
+        tracks_inserted,
+    )
 
     return ReconciliationResult(
         catalog_new=catalog_new,

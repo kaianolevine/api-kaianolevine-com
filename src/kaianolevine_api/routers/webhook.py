@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import logging
-
 from fastapi import APIRouter, Body, Depends
+from mini_app_polis import logger as logger_mod
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
@@ -11,7 +10,7 @@ from ..models import PipelineEvaluation as DbEval
 from ..schemas import Envelope, PipelineEvaluationItem, PrefectWebhookPayload, success_envelope
 
 router = APIRouter()
-log = logging.getLogger(__name__)
+log = logger_mod.get_logger()
 
 
 def _severity_for_state(state_type: str | None) -> str:

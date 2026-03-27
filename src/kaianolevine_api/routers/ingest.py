@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.logger import LOG_START, LOG_SUCCESS, LOG_WARNING
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,7 @@ from ..services.flags import is_enabled
 from ..services.reconciliation import reconcile_set_tracks
 
 router = APIRouter()
+log = logger_mod.get_logger()
 
 
 @router.post(
@@ -26,8 +29,11 @@ async def ingest_set(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[IngestResponseData]:
+    log.info("%s ingest received source_file=%s", LOG_START, payload.source_file)
+
     settings = get_settings()
     if not await is_enabled("flags.deejay_api.ingest_enabled", session):
+        log.warning("%s ingest disabled by feature flag", LOG_WARNING)
         raise HTTPException(
             status_code=503,
             detail={"code": "feature_disabled", "message": "Ingest is currently disabled"},
@@ -57,6 +63,9 @@ async def ingest_set(
         await session.flush()
         is_reingestion = False
 
+    if is_reingestion:
+        log.info("%s re-ingestion detected for source_file=%s", LOG_WARNING, payload.source_file)
+
     result = await reconcile_set_tracks(
         session=session,
         owner_id=owner_id,
@@ -67,6 +76,14 @@ async def ingest_set(
     )
 
     await session.commit()
+
+    log.info(
+        "%s ingest complete set_id=%s tracks=%s catalog_new=%s",
+        LOG_SUCCESS,
+        db_set.id,
+        result.tracks_inserted,
+        result.catalog_new,
+    )
 
     data = IngestResponseData(
         set_id=db_set.id,
