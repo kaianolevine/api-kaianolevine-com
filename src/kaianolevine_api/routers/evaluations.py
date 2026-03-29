@@ -97,6 +97,15 @@ async def evaluations_summary(
 ) -> Envelope[list[EvaluationSummaryItem]]:
     settings = get_settings()
 
+    latest_runs = (
+        select(
+            DbEval.repo,
+            DbEval.source,
+            func.max(DbEval.evaluated_at).label("latest_at"),
+        )
+        .group_by(DbEval.repo, DbEval.source)
+        .subquery()
+    )
     stmt = (
         select(
             DbEval.dimension,
@@ -106,6 +115,12 @@ async def evaluations_summary(
             func.sum(case((DbEval.severity == "WARN", 1), else_=0)).label("warn_count"),
             func.sum(case((DbEval.severity == "INFO", 1), else_=0)).label("info_count"),
             func.max(DbEval.evaluated_at).label("most_recent"),
+        )
+        .join(
+            latest_runs,
+            (DbEval.repo == latest_runs.c.repo)
+            & (DbEval.source == latest_runs.c.source)
+            & (DbEval.evaluated_at == latest_runs.c.latest_at),
         )
         .group_by(DbEval.dimension)
         .order_by(func.max(DbEval.evaluated_at).desc())
