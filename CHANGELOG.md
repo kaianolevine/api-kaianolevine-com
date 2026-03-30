@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.13.2...v1.14.0) (2026-03-30)
+
+
+### Features
+
+* get version, error reporting, evaluations list ([693ba7d](https://github.com/mini-app-polis/api-kaianolevine-com/commit/693ba7d3768cc278b802d764e4e4a50221b0718a))
+
 ## [1.13.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.13.1...v1.13.2) (2026-03-29)
 
 
