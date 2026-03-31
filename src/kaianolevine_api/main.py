@@ -131,7 +131,13 @@ def _build_app() -> FastAPI:
 app = _build_app()
 
 
-@app.get("/version", tags=["meta"])
+@app.get(
+    "/version",
+    tags=["meta"],
+    summary="API version",
+    description="Returns the currently deployed package version.",
+    response_model=dict,
+)
 async def version() -> dict:
     from importlib.metadata import version as pkg_version
 

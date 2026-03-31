@@ -94,7 +94,15 @@ def _safe_filename(name: str) -> str:
     return name.replace("\r", "").replace("\n", "").replace('"', "")
 
 
-@router.get("/resume")
+@router.get(
+    "/resume",
+    summary="Serve resume PDF",
+    description=(
+        "Streams the resume PDF from Google Drive. "
+        "Supports iframe embedding on software.kaianolevine.com."
+    ),
+    response_model=None,
+)
 async def get_resume(settings: Settings = Depends(get_settings)) -> StreamingResponse:
     file_id = settings.RESUME_FILE_ID
     if not file_id:

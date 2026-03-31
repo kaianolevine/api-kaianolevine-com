@@ -202,9 +202,11 @@ def _error_response(
     "/contact",
     summary="Submit a contact form",
     description=(
-        "Accepts JSON or multipart/form-data. Validates a Cloudflare Turnstile token, "
-        "then sends an email via Brevo. Only allowed from configured CONTACT_ALLOWED_ORIGINS."
+        "Accepts JSON or multipart/form-data. Validates a Cloudflare "
+        "Turnstile token, then sends an email via Brevo. Only allowed "
+        "from configured CORS_ORIGINS."
     ),
+    response_model=None,
     status_code=200,
 )
 async def submit_contact(request: Request) -> Response:

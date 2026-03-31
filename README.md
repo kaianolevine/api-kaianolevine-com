@@ -1,11 +1,9 @@
 # kaianolevine-api
 
-FastAPI service providing:
-* CRUD-style read endpoints for `sets` and `tracks`
-* A `track_catalog` for normalized track matching + reconciliation
-* Pipeline evaluation endpoints (list, summary, and write)
-* Basic usage statistics endpoints
-* An ingest endpoint that runs reconciliation and catalog upsert logic
+FastAPI service powering api.kaianolevine.com — sets, tracks, catalog
+reconciliation, pipeline evaluations, feature flags, stats, live plays,
+contact form handling (Brevo + Turnstile), and resume PDF proxy
+(Google Drive).
 
 ## Developer Setup
 
@@ -42,7 +40,7 @@ API docs available at http://localhost:8000/docs
 uv run pytest
 
 # With coverage detail
-uv run pytest --cov=kaianolevine_api --cov-report=term-missing
+uv run pytest --cov=src --cov-report=term-missing
 ```
 
 ### Lint, format, type check
@@ -59,17 +57,6 @@ uv run pre-commit run --all-files
 ```
 
 Hooks run on every `git commit`: ruff lint, ruff format, mock method checks, type annotation checks. If a hook fails the commit is blocked — ruff will auto-fix in place, then `git add .` and re-commit.
-
-### Database migrations
-```bash
-# Apply all pending migrations
-uv run alembic upgrade head
-
-# Create a new migration after changing models
-uv run alembic revision --autogenerate -m "description"
-```
-
-Migrations run automatically on Railway at deploy time. For local development, `DATABASE_URL` must point at a reachable PostgreSQL instance (not `railway.internal` — use the public Railway URL or a local Postgres).
 
 ## CI/CD
 
