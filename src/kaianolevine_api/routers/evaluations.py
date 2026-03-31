@@ -98,7 +98,8 @@ async def list_evaluations(
     repo: Annotated[str | None, Query()] = None,
     dimension: Annotated[str | None, Query()] = None,
     severity: Annotated[str | None, Query()] = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    run_id: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[PipelineEvaluationItem]]:
@@ -116,6 +117,8 @@ async def list_evaluations(
         stmt = stmt.where(DbEval.dimension == dimension)
     if severity:
         stmt = stmt.where(DbEval.severity == severity)
+    if run_id is not None:
+        stmt = stmt.where(DbEval.run_id == run_id)
 
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
@@ -147,6 +150,7 @@ async def list_evaluations(
     description="Aggregate evaluation findings grouped by dimension.",
 )
 async def evaluations_summary(
+    run_id: Annotated[str | None, Query()] = None,
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[EvaluationSummaryItem]]:
     settings = get_settings()
@@ -166,6 +170,8 @@ async def evaluations_summary(
         .group_by(DbEval.dimension)
         .order_by(func.max(DbEval.evaluated_at).desc())
     )
+    if run_id is not None:
+        stmt = stmt.where(DbEval.run_id == run_id)
     rows = (await session.execute(stmt)).all()
 
     data = [
