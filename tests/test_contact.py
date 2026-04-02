@@ -157,8 +157,7 @@ async def test_contact_turnstile_failure(client: AsyncClient) -> None:
     err = resp.json()["error"]
     assert err["code"] == "turnstile_failed"
     assert (
-        err["message"]
-        == "CAPTCHA verification failed — please refresh and try again"
+        err["message"] == "CAPTCHA verification failed — please refresh and try again"
     )
 
 

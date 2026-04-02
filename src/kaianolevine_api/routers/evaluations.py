@@ -57,9 +57,7 @@ def _eligible_latest_evaluation_ids_subquery():
     )
 
     has_run_id_at_latest = (
-        select(latest_run_ids.c.repo, latest_run_ids.c.source)
-        .distinct()
-        .subquery()
+        select(latest_run_ids.c.repo, latest_run_ids.c.source).distinct().subquery()
     )
 
     eligible_by_run = select(DbEval.id).join(

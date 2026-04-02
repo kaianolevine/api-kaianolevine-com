@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     API_VERSION: str = "1.0"
     OWNER_ID: str = "dev-owner"
-    SENTRY_DSN: str | None = None
+    SENTRY_DSN_API: str | None = None
     CORS_ORIGINS: list[str] = ["*"]
 
     # Contact form

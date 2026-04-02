@@ -210,18 +210,14 @@ async def test_list_evaluations_returns_all_findings_same_run_id_even_if_timesta
 
     async with async_engine.begin() as conn:
         await conn.execute(
-            text(
-                "UPDATE pipeline_evaluations SET evaluated_at = :t1 WHERE id = :id_a"
-            ),
+            text("UPDATE pipeline_evaluations SET evaluated_at = :t1 WHERE id = :id_a"),
             {
                 "t1": "2024-06-01 10:00:00",
                 "id_a": id_a,
             },
         )
         await conn.execute(
-            text(
-                "UPDATE pipeline_evaluations SET evaluated_at = :t2 WHERE id = :id_b"
-            ),
+            text("UPDATE pipeline_evaluations SET evaluated_at = :t2 WHERE id = :id_b"),
             {
                 "t2": "2024-06-01 10:00:01",
                 "id_b": id_b,

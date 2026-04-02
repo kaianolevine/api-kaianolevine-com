@@ -151,11 +151,11 @@ async def version() -> dict:
 @app.on_event("startup")
 async def _startup() -> None:
     settings = get_settings()
-    if not settings.SENTRY_DSN:
+    if not settings.SENTRY_DSN_API:
         return
 
     sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
+        dsn=settings.SENTRY_DSN_API,
         integrations=[FastApiIntegration()],
         environment=settings.ENVIRONMENT,
         traces_sample_rate=1.0,
