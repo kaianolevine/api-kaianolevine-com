@@ -1,3 +1,15 @@
+# [1.15.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.14.2...v1.15.0) (2026-04-03)
+
+
+### Bug Fixes
+
+* tests ([05710a4](https://github.com/mini-app-polis/api-kaianolevine-com/commit/05710a4f2c680d4442f4cf951aabf54048479f78))
+
+
+### Features
+
+* adding note ingest support ([b33cc26](https://github.com/mini-app-polis/api-kaianolevine-com/commit/b33cc26aa24ffb3cd47848ab4ec335357df4ec70))
+
 ## [1.14.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.14.1...v1.14.2) (2026-04-02)
 
 
