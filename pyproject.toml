@@ -48,6 +48,9 @@ ignore = ["E501"]
 [tool.ruff.format]
 quote-style = "double"
 
+[tool.uv]
+package = true
+
 [tool.uv.sources]
 common-python-utils = { git = "https://github.com/mini-app-polis/common-python-utils.git", rev = "main" }
 
