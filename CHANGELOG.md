@@ -1,3 +1,12 @@
+## [1.16.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.16.0...v1.16.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* owner id for api ([e56ae21](https://github.com/mini-app-polis/api-kaianolevine-com/commit/e56ae21e7f8e869c72096924a0eace324e9317c6))
+* tests ([ec8f9fb](https://github.com/mini-app-polis/api-kaianolevine-com/commit/ec8f9fbf971e545b95d8e3a24373e306b03e9def))
+* tests ([781ff3b](https://github.com/mini-app-polis/api-kaianolevine-com/commit/781ff3b4f7cae47fb8e818fd86669db66a094e57))
+
 # [1.16.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.15.2...v1.16.0) (2026-04-05)
 
 
