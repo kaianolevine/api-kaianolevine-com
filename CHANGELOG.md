@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.15.2...v1.16.0) (2026-04-05)
+
+
+### Features
+
+* migration to more metadata on processed notes ([20f5034](https://github.com/mini-app-polis/api-kaianolevine-com/commit/20f503402a8bd725b7963067d62c91b374e46fe1))
+
 ## [1.15.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.15.1...v1.15.2) (2026-04-03)
 
 
