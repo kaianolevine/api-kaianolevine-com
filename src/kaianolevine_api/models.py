@@ -4,6 +4,7 @@ import datetime as dt
 import uuid
 
 from sqlalchemy import (
+    ARRAY,
     JSON,
     UUID,
     Boolean,
@@ -315,13 +316,27 @@ class WcsNote(Base):
     session_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     session_type: Mapped[str] = mapped_column(
         String, nullable=False, default="other"
-    )  # private_lesson | class_taught | class_attended | workshop | coaching_session | other
+    )  # private_lesson | group_class | other
     visibility: Mapped[str] = mapped_column(
         String, nullable=False, default="private"
     )  # private | public
     model: Mapped[str] = mapped_column(String, nullable=False)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     notes_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # PostgreSQL: TEXT[] (see migrations/011). SQLite tests: JSON via variant.
+    instructors: Mapped[list[str]] = mapped_column(
+        ARRAY(String).with_variant(JSON(), "sqlite"),
+        nullable=False,
+        default=list,
+    )
+    students: Mapped[list[str]] = mapped_column(
+        ARRAY(String).with_variant(JSON(), "sqlite"),
+        nullable=False,
+        default=list,
+    )
+    organization: Mapped[str] = mapped_column(
+        String, nullable=False, default="", server_default=""
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

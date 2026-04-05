@@ -11,7 +11,7 @@ def _transcript_payload(**overrides) -> dict:
     base = {
         "raw_text": "Instructor said: keep your frame and stay on axis.",
         "source_type": "plaud",
-        "source_filename": "plaud_2024-01-15_lesson.txt",
+        "source_filename": "2026-04-01 Kaiano > Sarah - Frame.txt",
         "drive_file_id": "drive-file-abc123",
     }
     return {**base, **overrides}
@@ -23,6 +23,9 @@ def _note_payload(transcript_id: str, **overrides) -> dict:
         "title": "Frame and axis — private lesson",
         "session_date": "2024-01-15",
         "session_type": "private_lesson",
+        "instructors": ["Kaiano"],
+        "students": ["Sarah"],
+        "organization": "",
         "visibility": "private",
         "model": "claude-sonnet-4-6",
         "provider": "anthropic",
@@ -68,7 +71,7 @@ async def test_create_transcript_output_shape(client) -> None:
     assert "id" in data
     assert "created_at" in data
     assert data["source_type"] == "plaud"
-    assert data["source_filename"] == "plaud_2024-01-15_lesson.txt"
+    assert data["source_filename"] == "2026-04-01 Kaiano > Sarah - Frame.txt"
     assert data["drive_file_id"] == "drive-file-abc123"
 
 
@@ -105,6 +108,9 @@ async def test_create_note_output_shape(client) -> None:
     assert "transcript_id" in note
     assert "created_at" in note
     assert note["session_type"] == "private_lesson"
+    assert note["instructors"] == ["Kaiano"]
+    assert note["students"] == ["Sarah"]
+    assert note["organization"] == ""
     assert note["visibility"] == "private"
     assert note["model"] == "claude-sonnet-4-6"
     assert note["provider"] == "anthropic"
@@ -121,12 +127,42 @@ async def test_create_note_invalid_transcript_id(client) -> None:
 
 
 async def test_create_note_invalid_session_type(client) -> None:
+    """class_attended is no longer a valid session type."""
     transcript = await _create_transcript(client)
     resp = await client.post(
         "/v1/wcs/notes",
-        json=_note_payload(transcript["id"], session_type="meditation"),
+        json=_note_payload(transcript["id"], session_type="class_attended"),
     )
     assert resp.status_code == 422
+
+
+async def test_create_note_group_class_payload(client) -> None:
+    """Group class notes have organization instead of students."""
+    transcript = await _create_transcript(client)
+    note = await _create_note(
+        client,
+        transcript["id"],
+        session_type="group_class",
+        instructors=["Kaiano"],
+        students=[],
+        organization="Swingesota Westie Academy",
+    )
+    assert note["session_type"] == "group_class"
+    assert note["organization"] == "Swingesota Westie Academy"
+    assert note["students"] == []
+
+
+async def test_create_note_multiple_instructors(client) -> None:
+    """Multiple instructors are stored and returned correctly."""
+    transcript = await _create_transcript(client)
+    note = await _create_note(
+        client,
+        transcript["id"],
+        instructors=["Margie", "Kaiano"],
+        students=["Sarah"],
+    )
+    assert note["instructors"] == ["Margie", "Kaiano"]
+    assert note["students"] == ["Sarah"]
 
 
 async def test_create_note_null_session_date(client) -> None:
@@ -137,7 +173,7 @@ async def test_create_note_null_session_date(client) -> None:
 
 
 async def test_create_note_malformed_session_date_is_tolerated(client) -> None:
-    """Unparseable session_date from LLM is stored as null rather than erroring."""
+    """Unparseable session_date is stored as null rather than erroring."""
     transcript = await _create_transcript(client)
     note = await _create_note(
         client, transcript["id"], session_date="sometime last winter"
@@ -159,7 +195,13 @@ async def test_list_notes_empty(client) -> None:
 async def test_list_notes_returns_created_notes(client) -> None:
     transcript = await _create_transcript(client)
     await _create_note(client, transcript["id"])
-    await _create_note(client, transcript["id"], session_type="class_attended")
+    await _create_note(
+        client,
+        transcript["id"],
+        session_type="group_class",
+        students=[],
+        organization="Swingesota",
+    )
 
     resp = await client.get("/v1/wcs/notes")
     assert resp.status_code == 200
@@ -169,14 +211,26 @@ async def test_list_notes_returns_created_notes(client) -> None:
 async def test_list_notes_filter_by_session_type(client) -> None:
     transcript = await _create_transcript(client)
     await _create_note(client, transcript["id"], session_type="private_lesson")
-    await _create_note(client, transcript["id"], session_type="class_attended")
-    await _create_note(client, transcript["id"], session_type="class_attended")
+    await _create_note(
+        client,
+        transcript["id"],
+        session_type="group_class",
+        students=[],
+        organization="Swingesota",
+    )
+    await _create_note(
+        client,
+        transcript["id"],
+        session_type="group_class",
+        students=[],
+        organization="Freedom Swing",
+    )
 
-    resp = await client.get("/v1/wcs/notes", params={"session_type": "class_attended"})
+    resp = await client.get("/v1/wcs/notes", params={"session_type": "group_class"})
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert len(data) == 2
-    assert all(n["session_type"] == "class_attended" for n in data)
+    assert all(n["session_type"] == "group_class" for n in data)
 
 
 async def test_list_notes_filter_by_visibility(client) -> None:

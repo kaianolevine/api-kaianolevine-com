@@ -358,10 +358,7 @@ def success_envelope(data: T, *, count: int, version: str) -> Envelope[T]:
 
 WcsSessionType = Literal[
     "private_lesson",
-    "class_taught",
-    "class_attended",
-    "workshop",
-    "coaching_session",
+    "group_class",
     "other",
 ]
 
@@ -401,8 +398,11 @@ class WcsNoteCreate(BaseModel):
 
     transcript_id: str
     title: str | None = None
-    session_date: str | None = None  # ISO-8601 date string from LLM
+    session_date: str | None = None  # ISO-8601 date string from filename
     session_type: WcsSessionType = "other"
+    instructors: list[str] = Field(default_factory=list)
+    students: list[str] = Field(default_factory=list)
+    organization: str = ""
     visibility: WcsVisibility = "private"
     model: str
     provider: str
@@ -417,6 +417,9 @@ class WcsNoteItem(BaseModel):
     title: str | None
     session_date: dt.date | None
     session_type: str
+    instructors: list[str]
+    students: list[str]
+    organization: str
     visibility: str
     model: str
     provider: str
