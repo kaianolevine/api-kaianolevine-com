@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     ENVIRONMENT: str = "development"
     API_VERSION: str = "1.0"
-    KAIANO_API_OWNER_ID: str = "dev-owner"
+    OWNER_ID: str = "dev-owner"
     SENTRY_DSN_API: str | None = None
     CORS_ORIGINS: list[str] = ["*"]
 
