@@ -8,7 +8,7 @@ import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from .config import get_settings
@@ -162,3 +162,11 @@ app = _build_app()
 )
 async def version() -> dict:
     return {"version": app.version}
+
+
+@app.get(
+    "/",
+    include_in_schema=False,
+)
+async def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
