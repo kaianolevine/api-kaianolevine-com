@@ -41,6 +41,7 @@ def _severity_for_state(state_type: str | None) -> str:
     response_model=Envelope[PipelineEvaluationItem],
     summary="Prefect flow webhook",
     description="Receive Prefect flow state payloads and create evaluation findings.",
+    include_in_schema=False,
 )
 async def prefect_webhook(
     payload: PrefectWebhookPayload = Body(..., embed=False),
