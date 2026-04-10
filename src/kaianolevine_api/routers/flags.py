@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_owner
@@ -33,6 +33,9 @@ async def list_flags(
 ) -> Envelope[list[FeatureFlagItem]]:
     del owner_id  # owner check is the protection layer for now
     settings = get_settings()
+    total = (
+        await session.execute(select(func.count()).select_from(DbFeatureFlag))
+    ).scalar_one()
 
     rows = (
         (
@@ -55,7 +58,9 @@ async def list_flags(
         )
         for row in rows
     ]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )
 
 
 @router.patch(
@@ -93,4 +98,4 @@ async def patch_flag(
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from httpx import AsyncClient
+import respx
+from httpx import AsyncClient, Response
 
 from kaianolevine_api.config import get_settings
 
@@ -20,95 +21,6 @@ def clear_resume_token_cache() -> Iterator[None]:
     resume_mod._token_cache["expires_at"] = 0.0
 
 
-def _meta_response_ok() -> MagicMock:
-    r = MagicMock()
-    r.status_code = 200
-    r.json = MagicMock(
-        return_value={
-            "id": "fid",
-            "name": 'Re"sume\r\n.pdf',
-            "mimeType": "application/pdf",
-            "size": "10",
-            "webViewLink": "https://example.com",
-        }
-    )
-    return r
-
-
-def _stream_response_ok() -> MagicMock:
-    stream = MagicMock()
-    stream.status_code = 200
-
-    async def aiter_bytes():
-        yield b"%PDF-1.4"
-
-    stream.aiter_bytes = aiter_bytes
-    stream.aclose = AsyncMock()
-    return stream
-
-
-def _httpx_client_factory_ok():
-    call_state = {"n": 0}
-
-    def factory(*args: object, **kwargs: object) -> MagicMock:
-        call_state["n"] += 1
-        if call_state["n"] == 1:
-            inst = MagicMock()
-            inst.__aenter__ = AsyncMock(return_value=inst)
-            inst.__aexit__ = AsyncMock(return_value=None)
-            inst.get = AsyncMock(return_value=_meta_response_ok())
-            return inst
-        inst = MagicMock()
-        inst.build_request = MagicMock(return_value=MagicMock())
-        inst.send = AsyncMock(return_value=_stream_response_ok())
-        inst.aclose = AsyncMock()
-        return inst
-
-    return factory
-
-
-def _httpx_client_factory_meta_fail():
-    call_state = {"n": 0}
-
-    def factory(*args: object, **kwargs: object) -> MagicMock:
-        call_state["n"] += 1
-        if call_state["n"] == 1:
-            inst = MagicMock()
-            inst.__aenter__ = AsyncMock(return_value=inst)
-            inst.__aexit__ = AsyncMock(return_value=None)
-            meta = MagicMock()
-            meta.status_code = 404
-            meta.json = MagicMock(return_value={})
-            inst.get = AsyncMock(return_value=meta)
-            return inst
-        raise AssertionError("unexpected second AsyncClient when metadata fails")
-
-    return factory
-
-
-def _httpx_client_factory_download_fail():
-    call_state = {"n": 0}
-
-    def factory(*args: object, **kwargs: object) -> MagicMock:
-        call_state["n"] += 1
-        if call_state["n"] == 1:
-            inst = MagicMock()
-            inst.__aenter__ = AsyncMock(return_value=inst)
-            inst.__aexit__ = AsyncMock(return_value=None)
-            inst.get = AsyncMock(return_value=_meta_response_ok())
-            return inst
-        inst = MagicMock()
-        inst.build_request = MagicMock(return_value=MagicMock())
-        stream = MagicMock()
-        stream.status_code = 403
-        stream.aclose = AsyncMock()
-        inst.send = AsyncMock(return_value=stream)
-        inst.aclose = AsyncMock()
-        return inst
-
-    return factory
-
-
 @pytest.mark.asyncio
 async def test_resume_501_when_resume_file_id_missing(
     monkeypatch: pytest.MonkeyPatch, client: AsyncClient
@@ -122,6 +34,7 @@ async def test_resume_501_when_resume_file_id_missing(
 
 
 @pytest.mark.asyncio
+@respx.mock
 async def test_resume_200_headers_and_streaming_body(
     monkeypatch: pytest.MonkeyPatch, client: AsyncClient
 ) -> None:
@@ -130,14 +43,33 @@ async def test_resume_200_headers_and_streaming_body(
     monkeypatch.setenv("GOOGLE_PRIVATE_KEY", "dummy")
     get_settings.cache_clear()
 
-    factory = _httpx_client_factory_ok()
-    with (
-        patch(
-            "kaianolevine_api.routers.resume.get_access_token",
-            new_callable=AsyncMock,
-            return_value="test-token",
-        ),
-        patch("kaianolevine_api.routers.resume.httpx.AsyncClient", side_effect=factory),
+    file_id = "file-abc"
+    meta_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+    respx.post("https://oauth2.googleapis.com/token").mock(
+        return_value=Response(
+            200, json={"access_token": "test-token", "expires_in": 3600}
+        )
+    )
+    respx.get(meta_url).mock(
+        side_effect=[
+            Response(
+                200,
+                json={
+                    "id": "fid",
+                    "name": 'Re"sume\r\n.pdf',
+                    "mimeType": "application/pdf",
+                    "size": "10",
+                    "webViewLink": "https://example.com",
+                },
+            ),
+            Response(
+                200, content=b"%PDF-1.4", headers={"Content-Type": "application/pdf"}
+            ),
+        ]
+    )
+    with patch(
+        "kaianolevine_api.routers.resume._build_service_account_jwt",
+        return_value="jwt",
     ):
         resp = await client.get("/v1/resume")
 
@@ -156,6 +88,7 @@ async def test_resume_200_headers_and_streaming_body(
 
 
 @pytest.mark.asyncio
+@respx.mock
 async def test_resume_502_when_drive_metadata_fails(
     monkeypatch: pytest.MonkeyPatch, client: AsyncClient
 ) -> None:
@@ -164,14 +97,17 @@ async def test_resume_502_when_drive_metadata_fails(
     monkeypatch.setenv("GOOGLE_PRIVATE_KEY", "dummy")
     get_settings.cache_clear()
 
-    factory = _httpx_client_factory_meta_fail()
-    with (
-        patch(
-            "kaianolevine_api.routers.resume.get_access_token",
-            new_callable=AsyncMock,
-            return_value="test-token",
-        ),
-        patch("kaianolevine_api.routers.resume.httpx.AsyncClient", side_effect=factory),
+    file_id = "file-abc"
+    meta_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+    respx.post("https://oauth2.googleapis.com/token").mock(
+        return_value=Response(
+            200, json={"access_token": "test-token", "expires_in": 3600}
+        )
+    )
+    respx.get(meta_url).mock(return_value=Response(404, json={}))
+    with patch(
+        "kaianolevine_api.routers.resume._build_service_account_jwt",
+        return_value="jwt",
     ):
         resp = await client.get("/v1/resume")
 
@@ -181,6 +117,7 @@ async def test_resume_502_when_drive_metadata_fails(
 
 
 @pytest.mark.asyncio
+@respx.mock
 async def test_resume_502_when_drive_download_fails(
     monkeypatch: pytest.MonkeyPatch, client: AsyncClient
 ) -> None:
@@ -189,14 +126,31 @@ async def test_resume_502_when_drive_download_fails(
     monkeypatch.setenv("GOOGLE_PRIVATE_KEY", "dummy")
     get_settings.cache_clear()
 
-    factory = _httpx_client_factory_download_fail()
-    with (
-        patch(
-            "kaianolevine_api.routers.resume.get_access_token",
-            new_callable=AsyncMock,
-            return_value="test-token",
-        ),
-        patch("kaianolevine_api.routers.resume.httpx.AsyncClient", side_effect=factory),
+    file_id = "file-abc"
+    meta_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+    respx.post("https://oauth2.googleapis.com/token").mock(
+        return_value=Response(
+            200, json={"access_token": "test-token", "expires_in": 3600}
+        )
+    )
+    respx.get(meta_url).mock(
+        side_effect=[
+            Response(
+                200,
+                json={
+                    "id": "fid",
+                    "name": 'Re"sume\r\n.pdf',
+                    "mimeType": "application/pdf",
+                    "size": "10",
+                    "webViewLink": "https://example.com",
+                },
+            ),
+            Response(403, json={}),
+        ]
+    )
+    with patch(
+        "kaianolevine_api.routers.resume._build_service_account_jwt",
+        return_value="jwt",
     ):
         resp = await client.get("/v1/resume")
 

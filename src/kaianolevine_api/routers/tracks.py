@@ -59,6 +59,33 @@ async def list_tracks(
     if data_quality:
         stmt = stmt.where(DbTrack.data_quality == data_quality)
 
+    total_stmt = (
+        select(func.count())
+        .select_from(DbTrack)
+        .join(DbSet, DbTrack.set_id == DbSet.id)
+    )
+    if artist:
+        total_stmt = total_stmt.where(
+            func.lower(DbTrack.artist).like(f"%{artist.lower()}%")
+        )
+    if title:
+        total_stmt = total_stmt.where(
+            func.lower(DbTrack.title).like(f"%{title.lower()}%")
+        )
+    if genre:
+        total_stmt = total_stmt.where(DbTrack.genre == genre)
+    if bpm_min is not None:
+        total_stmt = total_stmt.where(DbTrack.bpm >= bpm_min)
+    if bpm_max is not None:
+        total_stmt = total_stmt.where(DbTrack.bpm <= bpm_max)
+    if year is not None:
+        start = dt.date(year, 1, 1)
+        end = dt.date(year, 12, 31)
+        total_stmt = total_stmt.where(DbSet.set_date >= start, DbSet.set_date <= end)
+    if data_quality:
+        total_stmt = total_stmt.where(DbTrack.data_quality == data_quality)
+    total = (await session.execute(total_stmt)).scalar_one()
+
     stmt = stmt.order_by(
         DbSet.set_date.desc(),
         DbTrack.play_order.asc().nulls_last(),
@@ -88,7 +115,9 @@ async def list_tracks(
         for track, set_row in rows
     ]
 
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )
 
 
 @router.get(
@@ -131,4 +160,4 @@ async def get_track(
         data_quality=track.data_quality,
         catalog_id=track.catalog_id,
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

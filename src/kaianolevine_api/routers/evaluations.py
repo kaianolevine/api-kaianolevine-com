@@ -118,6 +118,17 @@ async def list_evaluations(
     if run_id is not None:
         stmt = stmt.where(DbEval.run_id == run_id)
 
+    total_stmt = select(func.count()).select_from(DbEval).where(DbEval.id.in_(eligible))
+    if repo:
+        total_stmt = total_stmt.where(DbEval.repo == repo)
+    if dimension:
+        total_stmt = total_stmt.where(DbEval.dimension == dimension)
+    if severity:
+        total_stmt = total_stmt.where(DbEval.severity == severity)
+    if run_id is not None:
+        total_stmt = total_stmt.where(DbEval.run_id == run_id)
+    total = (await session.execute(total_stmt)).scalar_one()
+
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
 
@@ -138,7 +149,9 @@ async def list_evaluations(
         for row in rows
     ]
 
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )
 
 
 @router.get(
@@ -182,7 +195,9 @@ async def evaluations_summary(
         )
         for d, error_count, warn_count, info_count, most_recent in rows
     ]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=len(data), version=settings.API_VERSION
+    )
 
 
 @router.post(
@@ -232,4 +247,4 @@ async def create_evaluation(
         flow_name=row.flow_name,
         evaluated_at=row.evaluated_at,
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

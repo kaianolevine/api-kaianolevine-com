@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS, LOG_WARNING
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_owner
@@ -63,8 +64,22 @@ async def ingest_set(
             source_file=payload.source_file,
         )
         session.add(db_set)
-        await session.flush()
-        is_reingestion = False
+        try:
+            await session.flush()
+            is_reingestion = False
+        except IntegrityError:
+            await session.rollback()
+            lookup = await session.execute(
+                select(DbSet).where(
+                    DbSet.owner_id == owner_id,
+                    DbSet.source_file == payload.source_file,
+                )
+            )
+            existing_set = lookup.scalars().first()
+            if existing_set is None:
+                raise
+            db_set = existing_set
+            is_reingestion = True
 
     if is_reingestion:
         log.info(
@@ -99,4 +114,4 @@ async def ingest_set(
         catalog_updated=result.catalog_updated,
         catalog_unchanged=result.catalog_unchanged,
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

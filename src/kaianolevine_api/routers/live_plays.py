@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,7 +66,7 @@ async def ingest_live_plays(
 
     await session.commit()
     data = LivePlaysResponseData(inserted=inserted, skipped=skipped)
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)
 
 
 @router.get(
@@ -96,6 +96,13 @@ async def list_recent_live_plays(
         .order_by(DbLivePlay.played_at.desc())
         .limit(limit)
     )
+    total = (
+        await session.execute(
+            select(func.count())
+            .select_from(DbLivePlay)
+            .where(DbLivePlay.owner_id == owner_id)
+        )
+    ).scalar_one()
     rows = (await session.execute(stmt)).scalars().all()
 
     data = [
@@ -108,4 +115,6 @@ async def list_recent_live_plays(
         )
         for row in rows
     ]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )

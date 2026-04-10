@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import Any
 
 import sentry_sdk
@@ -28,10 +29,25 @@ from .routers import (
 from .schemas import ErrorDetail, ErrorEnvelope
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    settings = get_settings()
+    if settings.SENTRY_DSN_API:
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN_API,
+            integrations=[FastApiIntegration()],
+            environment=settings.ENVIRONMENT,
+            traces_sample_rate=1.0,
+        )
+    yield
+
+
 def _build_app() -> FastAPI:
     settings = get_settings()
 
-    app = FastAPI(title="kaianolevine-api", version=settings.API_VERSION)
+    app = FastAPI(
+        title="kaianolevine-api", version=settings.API_VERSION, lifespan=lifespan
+    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -148,17 +164,3 @@ async def version() -> dict:
     except Exception:
         v = get_settings().API_VERSION
     return {"version": v}
-
-
-@app.on_event("startup")
-async def _startup() -> None:
-    settings = get_settings()
-    if not settings.SENTRY_DSN_API:
-        return
-
-    sentry_sdk.init(
-        dsn=settings.SENTRY_DSN_API,
-        integrations=[FastApiIntegration()],
-        environment=settings.ENVIRONMENT,
-        traces_sample_rate=1.0,
-    )

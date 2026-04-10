@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class Meta(BaseModel):
     count: int = Field(..., ge=0)
+    total: int = Field(..., ge=0)
     version: str
 
 
@@ -350,8 +351,8 @@ def api_error(
     return HTTPException(status_code=status_code, detail=d)
 
 
-def success_envelope(data: T, *, count: int, version: str) -> Envelope[T]:
-    return Envelope(data=data, meta=Meta(count=count, version=version))
+def success_envelope(data: T, *, count: int, total: int, version: str) -> Envelope[T]:
+    return Envelope(data=data, meta=Meta(count=count, total=total, version=version))
 
 
 # ── WCS Notes schemas ─────────────────────────────────────────────────────────

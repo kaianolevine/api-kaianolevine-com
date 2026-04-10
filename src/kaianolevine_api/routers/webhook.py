@@ -108,4 +108,4 @@ async def prefect_webhook(
         flow_name=row.flow_name,
         evaluated_at=row.evaluated_at,
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

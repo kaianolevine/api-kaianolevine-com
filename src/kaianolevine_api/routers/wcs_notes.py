@@ -14,7 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_owner
@@ -80,7 +80,7 @@ async def create_transcript(
         drive_file_id=row.drive_file_id,
         created_at=row.created_at,
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)
 
 
 # ── Notes — write ─────────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ async def create_note(
 
     settings = get_settings()
     data = _to_item(row)
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)
 
 
 # ── Notes — read ──────────────────────────────────────────────────────────────
@@ -189,9 +189,20 @@ async def list_notes(
     if visibility:
         stmt = stmt.where(DbNote.visibility == visibility)
 
+    total_stmt = (
+        select(func.count()).select_from(DbNote).where(DbNote.owner_id == owner_id)
+    )
+    if session_type:
+        total_stmt = total_stmt.where(DbNote.session_type == session_type)
+    if visibility:
+        total_stmt = total_stmt.where(DbNote.visibility == visibility)
+    total = (await session.execute(total_stmt)).scalar_one()
+
     rows = (await session.execute(stmt)).scalars().all()
     data = [_to_item(r) for r in rows]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total or 0, version=settings.API_VERSION
+    )
 
 
 @router.get(
@@ -217,7 +228,9 @@ async def get_note(
     if row.visibility == "private" and row.owner_id != owner_id:
         raise api_error(404, "note_not_found", "Note not found")
 
-    return success_envelope(_to_item(row), count=1, version=settings.API_VERSION)
+    return success_envelope(
+        _to_item(row), count=1, total=1, version=settings.API_VERSION
+    )
 
 
 # ── Notes — patch ─────────────────────────────────────────────────────────────
@@ -249,7 +262,9 @@ async def patch_note(
     await session.commit()
     await session.refresh(row)
 
-    return success_envelope(_to_item(row), count=1, version=settings.API_VERSION)
+    return success_envelope(
+        _to_item(row), count=1, total=1, version=settings.API_VERSION
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

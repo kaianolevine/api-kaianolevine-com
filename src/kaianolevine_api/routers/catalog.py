@@ -56,6 +56,21 @@ async def list_catalog(
     if min_play_count is not None:
         stmt = stmt.where(DbCatalog.play_count >= min_play_count)
 
+    total_stmt = select(func.count()).select_from(DbCatalog)
+    if artist:
+        total_stmt = total_stmt.where(
+            func.lower(DbCatalog.artist).like(f"%{artist.lower()}%")
+        )
+    if title:
+        total_stmt = total_stmt.where(
+            func.lower(DbCatalog.title).like(f"%{title.lower()}%")
+        )
+    if confidence:
+        total_stmt = total_stmt.where(DbCatalog.confidence == confidence)
+    if min_play_count is not None:
+        total_stmt = total_stmt.where(DbCatalog.play_count >= min_play_count)
+    total = (await session.execute(total_stmt)).scalar_one()
+
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
 
@@ -76,7 +91,9 @@ async def list_catalog(
         for row in rows
     ]
 
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )
 
 
 @router.get(
@@ -135,7 +152,7 @@ async def get_catalog(
         play_history=play_history,
     )
 
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)
 
 
 @router.patch(

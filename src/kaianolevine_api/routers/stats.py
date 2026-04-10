@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import uuid
-from collections import Counter, defaultdict
-
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
@@ -70,7 +67,7 @@ async def stats_overview(
         years_active=years_active,
         most_played_artist=most_played_artist,
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)
 
 
 @router.get(
@@ -84,35 +81,33 @@ async def stats_by_year(
 ) -> Envelope[list[StatsByYearItem]]:
     settings = get_settings()
 
-    sets = (await session.execute(select(DbSet.id, DbSet.set_date))).all()
-    year_to_set_ids: dict[int, list[uuid.UUID]] = defaultdict(list)
-    for set_id, set_date in sets:
-        year_to_set_ids[set_date.year].append(set_id)
-
-    tracks = (
+    year_expr = func.extract("year", DbSet.set_date).cast(Integer).label("year")
+    rows = (
         await session.execute(
-            select(DbTrack.id, DbTrack.set_id).join(DbSet, DbTrack.set_id == DbSet.id)
+            select(
+                year_expr,
+                func.count(DbSet.id.distinct()).label("set_count"),
+                func.count(DbTrack.id).label("track_count"),
+            )
+            .select_from(DbSet)
+            .outerjoin(DbTrack, DbTrack.set_id == DbSet.id)
+            .group_by(year_expr)
+            .order_by(year_expr.asc())
         )
     ).all()
-    year_to_track_count: Counter[int] = Counter()
-    # Use sets query for year mapping
-    set_id_to_year: dict[uuid.UUID, int] = {}
-    for set_id, set_date in sets:
-        set_id_to_year[set_id] = set_date.year
-    for track_id, set_id in tracks:
-        year_to_track_count[set_id_to_year.get(set_id)] += 1  # type: ignore[arg-type]
 
-    years = sorted(year_to_set_ids.keys())
     data = [
         StatsByYearItem(
-            year=y,
-            set_count=len(year_to_set_ids[y]),
-            track_count=year_to_track_count[y],
+            year=int(row.year),
+            set_count=row.set_count,
+            track_count=row.track_count,
         )
-        for y in years
+        for row in rows
     ]
 
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=len(data), version=settings.API_VERSION
+    )
 
 
 @router.get(
@@ -138,7 +133,12 @@ async def stats_top_artists(
     data = [
         StatsTopArtistItem(artist=artist, play_count=count) for artist, count in rows
     ]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    total = (
+        await session.execute(select(func.count(func.distinct(DbTrack.artist))))
+    ).scalar_one()
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )
 
 
 @router.get(
@@ -171,4 +171,9 @@ async def stats_top_tracks(
         )
         for row in rows
     ]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    total = (
+        await session.execute(select(func.count()).select_from(DbCatalog))
+    ).scalar_one()
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )

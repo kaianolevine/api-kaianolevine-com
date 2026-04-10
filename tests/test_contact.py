@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
 import pytest
-from httpx import AsyncClient
+import respx
+from httpx import AsyncClient, Response
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -52,39 +51,32 @@ async def _brevo_fail(**kwargs):  # noqa: ANN001
 @pytest.mark.asyncio
 async def test_contact_blocked_origin(client: AsyncClient) -> None:
     """Requests from disallowed origins are rejected with 403."""
-    with patch(
-        "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
-    ) as mock_ts:
-        mock_ts.return_value = True
-        resp = await client.post(
-            "/v1/contact",
-            json=VALID_JSON_BODY,
-            headers={"origin": "https://evil.example.com"},
-        )
+    resp = await client.post(
+        "/v1/contact",
+        json=VALID_JSON_BODY,
+        headers={"origin": "https://evil.example.com"},
+    )
 
     # The conftest sets CONTACT_ALLOWED_ORIGINS=["https://kaianolevine.com"]
     assert resp.status_code == 403
     assert resp.json()["error"]["code"] == "forbidden"
 
 
+@respx.mock
 @pytest.mark.asyncio
 async def test_contact_allowed_origin(client: AsyncClient) -> None:
     """Requests from an allowed origin proceed past the origin check."""
-    with (
-        patch(
-            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
-        ) as mock_ts,
-        patch(
-            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
-        ) as mock_brevo,
-    ):
-        mock_ts.return_value = True
-        mock_brevo.return_value = (True, None)
-        resp = await client.post(
-            "/v1/contact",
-            json=VALID_JSON_BODY,
-            headers={"origin": "https://kaianolevine.com"},
-        )
+    respx.post("https://challenges.cloudflare.com/turnstile/v0/siteverify").mock(
+        return_value=Response(200, json={"success": True})
+    )
+    respx.post("https://api.brevo.com/v3/smtp/email").mock(
+        return_value=Response(201, json={"messageId": "ok"})
+    )
+    resp = await client.post(
+        "/v1/contact",
+        json=VALID_JSON_BODY,
+        headers={"origin": "https://kaianolevine.com"},
+    )
 
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
@@ -99,15 +91,11 @@ async def test_contact_allowed_origin(client: AsyncClient) -> None:
 async def test_contact_honeypot_silent_ok(client: AsyncClient) -> None:
     """Filled honeypot field returns 200 silently without sending email."""
     body = {**VALID_JSON_BODY, "website": "http://spam.example.com"}
-    with patch(
-        "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
-    ) as mock_brevo:
-        resp = await client.post(
-            "/v1/contact",
-            json=body,
-            headers={"origin": "https://kaianolevine.com"},
-        )
-        mock_brevo.assert_not_called()
+    resp = await client.post(
+        "/v1/contact",
+        json=body,
+        headers={"origin": "https://kaianolevine.com"},
+    )
 
     assert resp.status_code == 200
 
@@ -141,17 +129,17 @@ async def test_contact_missing_required_field(
 # ---------------------------------------------------------------------------
 
 
+@respx.mock
 @pytest.mark.asyncio
 async def test_contact_turnstile_failure(client: AsyncClient) -> None:
-    with patch(
-        "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
-    ) as mock_ts:
-        mock_ts.return_value = False
-        resp = await client.post(
-            "/v1/contact",
-            json=VALID_JSON_BODY,
-            headers={"origin": "https://kaianolevine.com"},
-        )
+    respx.post("https://challenges.cloudflare.com/turnstile/v0/siteverify").mock(
+        return_value=Response(200, json={"success": False})
+    )
+    resp = await client.post(
+        "/v1/contact",
+        json=VALID_JSON_BODY,
+        headers={"origin": "https://kaianolevine.com"},
+    )
 
     assert resp.status_code == 400
     err = resp.json()["error"]
@@ -166,23 +154,20 @@ async def test_contact_turnstile_failure(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 
 
+@respx.mock
 @pytest.mark.asyncio
 async def test_contact_brevo_failure(client: AsyncClient) -> None:
-    with (
-        patch(
-            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
-        ) as mock_ts,
-        patch(
-            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
-        ) as mock_brevo,
-    ):
-        mock_ts.return_value = True
-        mock_brevo.return_value = (False, "upstream error")
-        resp = await client.post(
-            "/v1/contact",
-            json=VALID_JSON_BODY,
-            headers={"origin": "https://kaianolevine.com"},
-        )
+    respx.post("https://challenges.cloudflare.com/turnstile/v0/siteverify").mock(
+        return_value=Response(200, json={"success": True})
+    )
+    respx.post("https://api.brevo.com/v3/smtp/email").mock(
+        return_value=Response(500, text="upstream error")
+    )
+    resp = await client.post(
+        "/v1/contact",
+        json=VALID_JSON_BODY,
+        headers={"origin": "https://kaianolevine.com"},
+    )
 
     assert resp.status_code == 502
     body = resp.json()
@@ -196,24 +181,21 @@ async def test_contact_brevo_failure(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 
 
+@respx.mock
 @pytest.mark.asyncio
 async def test_contact_form_data(client: AsyncClient) -> None:
     """Endpoint accepts application/x-www-form-urlencoded in addition to JSON."""
-    with (
-        patch(
-            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
-        ) as mock_ts,
-        patch(
-            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
-        ) as mock_brevo,
-    ):
-        mock_ts.return_value = True
-        mock_brevo.return_value = (True, None)
-        resp = await client.post(
-            "/v1/contact",
-            data=VALID_FORM_BODY,
-            headers={"origin": "https://kaianolevine.com"},
-        )
+    respx.post("https://challenges.cloudflare.com/turnstile/v0/siteverify").mock(
+        return_value=Response(200, json={"success": True})
+    )
+    respx.post("https://api.brevo.com/v3/smtp/email").mock(
+        return_value=Response(201, json={"messageId": "ok"})
+    )
+    resp = await client.post(
+        "/v1/contact",
+        data=VALID_FORM_BODY,
+        headers={"origin": "https://kaianolevine.com"},
+    )
 
     assert resp.status_code == 200
 
@@ -223,51 +205,45 @@ async def test_contact_form_data(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 
 
+@respx.mock
 @pytest.mark.asyncio
 async def test_contact_redirect_true(client: AsyncClient) -> None:
     """redirect=true returns a 303 to {origin}/thanks/."""
     body = {**VALID_JSON_BODY, "redirect": True}
-    with (
-        patch(
-            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
-        ) as mock_ts,
-        patch(
-            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
-        ) as mock_brevo,
-    ):
-        mock_ts.return_value = True
-        mock_brevo.return_value = (True, None)
-        resp = await client.post(
-            "/v1/contact",
-            json=body,
-            headers={"origin": "https://kaianolevine.com"},
-            follow_redirects=False,
-        )
+    respx.post("https://challenges.cloudflare.com/turnstile/v0/siteverify").mock(
+        return_value=Response(200, json={"success": True})
+    )
+    respx.post("https://api.brevo.com/v3/smtp/email").mock(
+        return_value=Response(201, json={"messageId": "ok"})
+    )
+    resp = await client.post(
+        "/v1/contact",
+        json=body,
+        headers={"origin": "https://kaianolevine.com"},
+        follow_redirects=False,
+    )
 
     assert resp.status_code == 303
     assert resp.headers["location"] == "https://kaianolevine.com/thanks/"
 
 
+@respx.mock
 @pytest.mark.asyncio
 async def test_contact_redirect_false(client: AsyncClient) -> None:
     """redirect=false returns plain 200 JSON."""
     body = {**VALID_JSON_BODY, "redirect": False}
-    with (
-        patch(
-            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
-        ) as mock_ts,
-        patch(
-            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
-        ) as mock_brevo,
-    ):
-        mock_ts.return_value = True
-        mock_brevo.return_value = (True, None)
-        resp = await client.post(
-            "/v1/contact",
-            json=body,
-            headers={"origin": "https://kaianolevine.com"},
-            follow_redirects=False,
-        )
+    respx.post("https://challenges.cloudflare.com/turnstile/v0/siteverify").mock(
+        return_value=Response(200, json={"success": True})
+    )
+    respx.post("https://api.brevo.com/v3/smtp/email").mock(
+        return_value=Response(201, json={"messageId": "ok"})
+    )
+    resp = await client.post(
+        "/v1/contact",
+        json=body,
+        headers={"origin": "https://kaianolevine.com"},
+        follow_redirects=False,
+    )
 
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}

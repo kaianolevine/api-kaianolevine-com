@@ -64,6 +64,17 @@ async def list_sets(
     if date_to:
         stmt = stmt.where(DbSet.set_date <= date_to)
 
+    total_stmt = select(func.count()).select_from(DbSet)
+    if venue:
+        total_stmt = total_stmt.where(
+            func.lower(DbSet.venue).like(f"%{venue.lower()}%")
+        )
+    if date_from:
+        total_stmt = total_stmt.where(DbSet.set_date >= date_from)
+    if date_to:
+        total_stmt = total_stmt.where(DbSet.set_date <= date_to)
+    total = (await session.execute(total_stmt)).scalar_one()
+
     stmt = stmt.order_by(DbSet.set_date.desc()).limit(limit).offset(offset)
     rows = (await session.execute(stmt)).all()
 
@@ -79,7 +90,9 @@ async def list_sets(
         for set_id, set_date, set_venue, source_file, track_count in rows
     ]
 
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )
 
 
 def _track_to_item(
@@ -142,7 +155,7 @@ async def get_set(
             for t in tracks
         ],
     )
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)
 
 
 @router.get(
@@ -175,4 +188,6 @@ async def get_set_tracks(
         _track_to_item(t, set_venue=set_row.venue, set_date=set_row.set_date)
         for t in tracks
     ]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=len(data), version=settings.API_VERSION
+    )

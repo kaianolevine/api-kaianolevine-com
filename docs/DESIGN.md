@@ -1,14 +1,22 @@
 # DESIGN.md
 
-This repository was generated from the written requirements included in the prompt.
+## Architecture Overview
 
-The original governing document was provided as `kaianolevine_api_design_v2.docx`, but the current environment can't directly extract `.docx` contents. If you want the exact wording from that file mirrored here, paste the text or provide a PDF export.
+`kaianolevine-api` is a FastAPI service deployed on Railway. The production stack uses
+SQLAlchemy async ORM with `asyncpg` against PostgreSQL. Tests run against an in-memory
+SQLite database to keep CI fast and deterministic.
+
+Write traffic is intentionally constrained: Prefect cogs are the only intended write
+clients for ingest and automation pathways. User-facing read APIs expose sets, tracks,
+catalog, notes, and stats. Runtime write surfaces for ingest and live plays are gated by
+feature flags so ingestion can be paused without redeploying. Sentry is enabled in API
+runtime (when configured) for centralized error tracking and observability.
 
 ## Section 5: API Endpoints
 
 All endpoints return the standard success envelope:
 
-`{ "data": ..., "meta": { "count": <n>, "version": "<API_VERSION>" } }`
+`{ "data": ..., "meta": { "count": <n>, "total": <n>, "version": "<API_VERSION>" } }`
 
 Errors return:
 

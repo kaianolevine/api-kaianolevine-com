@@ -30,6 +30,9 @@ async def list_spotify_playlists(
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[SpotifyPlaylistItem]]:
     settings = get_settings()
+    total = (
+        await session.execute(select(func.count()).select_from(DbSpotifyPlaylist))
+    ).scalar_one()
     stmt = select(DbSpotifyPlaylist).order_by(DbSpotifyPlaylist.name.asc())
     rows = (await session.execute(stmt)).scalars().all()
 
@@ -50,7 +53,9 @@ async def list_spotify_playlists(
         )
         for row in rows
     ]
-    return success_envelope(data, count=len(data), version=settings.API_VERSION)
+    return success_envelope(
+        data, count=len(data), total=total, version=settings.API_VERSION
+    )
 
 
 @router.post(
@@ -110,4 +115,4 @@ async def ingest_spotify_playlists(
 
     await session.commit()
     data = SpotifyPlaylistsIngestResponse(upserted=upserted, unchanged=unchanged)
-    return success_envelope(data, count=1, version=settings.API_VERSION)
+    return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

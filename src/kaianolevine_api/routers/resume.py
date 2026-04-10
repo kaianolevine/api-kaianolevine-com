@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import time
@@ -17,6 +18,7 @@ from ..config import Settings, get_settings
 router = APIRouter()
 
 _token_cache: dict[str, Any] = {"token": None, "expires_at": 0.0}
+_token_lock = asyncio.Lock()
 
 
 def _b64url(data: bytes) -> str:
@@ -82,12 +84,14 @@ async def _fetch_oauth_access_token(settings: Settings) -> None:
 async def get_access_token(settings: Settings) -> str:
     """Return a valid Bearer token, refreshing from OAuth when near expiry."""
     now = time.time()
-    token = _token_cache["token"]
-    expires_at = float(_token_cache["expires_at"] or 0.0)
-    if token and now < expires_at - 60:
-        return str(token)
-    await _fetch_oauth_access_token(settings)
-    return str(_token_cache["token"])
+    if _token_cache["token"] and now < float(_token_cache["expires_at"] or 0) - 60:
+        return str(_token_cache["token"])
+    async with _token_lock:
+        now = time.time()
+        if _token_cache["token"] and now < float(_token_cache["expires_at"] or 0) - 60:
+            return str(_token_cache["token"])
+        await _fetch_oauth_access_token(settings)
+        return str(_token_cache["token"])
 
 
 def _safe_filename(name: str) -> str:
