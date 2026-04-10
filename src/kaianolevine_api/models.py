@@ -170,6 +170,7 @@ class PipelineEvaluation(Base):
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     run_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    violation_id: Mapped[str | None] = mapped_column(String, nullable=True)
     finding: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggestion: Mapped[str | None] = mapped_column(Text, nullable=True)
     standards_version: Mapped[str | None] = mapped_column(String, nullable=True)

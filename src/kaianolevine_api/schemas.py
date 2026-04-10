@@ -144,6 +144,7 @@ class CatalogDetail(BaseModel):
 
 class PipelineEvaluationCreate(BaseModel):
     run_id: str | None = None
+    violation_id: str | None = None
     repo: str
     dimension: str  # structural_conformance | pipeline_consistency |
     # testing_coverage | documentation_coverage |
@@ -161,6 +162,7 @@ class PipelineEvaluationCreate(BaseModel):
 class PipelineEvaluationItem(BaseModel):
     id: uuid.UUID
     run_id: str | None
+    violation_id: str | None = None
     repo: str
     dimension: str
     severity: str

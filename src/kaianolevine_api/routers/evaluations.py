@@ -136,6 +136,7 @@ async def list_evaluations(
         PipelineEvaluationItem(
             id=row.id,
             run_id=row.run_id,
+            violation_id=row.violation_id,
             repo=row.repo,
             dimension=row.dimension,
             severity=row.severity,
@@ -223,6 +224,7 @@ async def create_evaluation(
         severity=payload.severity,
         details=details,
         run_id=payload.run_id,
+        violation_id=payload.violation_id,
         finding=payload.finding,
         suggestion=payload.suggestion,
         standards_version=payload.standards_version,
@@ -237,6 +239,7 @@ async def create_evaluation(
     data = PipelineEvaluationItem(
         id=row.id,
         run_id=row.run_id,
+        violation_id=row.violation_id,
         repo=row.repo,
         dimension=row.dimension,
         severity=row.severity,
