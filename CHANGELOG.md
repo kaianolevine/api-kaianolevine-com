@@ -1,3 +1,20 @@
+# [1.17.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.16.2...v1.17.0) (2026-04-10)
+
+
+### Bug Fixes
+
+* uv lock ([4a87e1d](https://github.com/mini-app-polis/api-kaianolevine-com/commit/4a87e1ddd78df68f798dbcb4dca637396bcf517c))
+
+
+### Features
+
+* add Project Keystone feature flags migration (013) ([0d63e91](https://github.com/mini-app-polis/api-kaianolevine-com/commit/0d63e91f1261a2093d1a00b24fb2caa15550d2a0))
+
+
+### Performance Improvements
+
+* replace Python years_active aggregation with SQL COUNT DISTINCT ([644b830](https://github.com/mini-app-polis/api-kaianolevine-com/commit/644b8306b645ab27859aea38cd327bbe78928a81))
+
 ## [1.16.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.16.1...v1.16.2) (2026-04-10)
 
 
