@@ -20,12 +20,12 @@ VALUES
     'kaiano',
     'flags.keystone.legacy_auth_enabled',
     TRUE,
-    'Project Keystone: accept X-Owner-Id header as auth (legacy). Disable once all cogs use Clerk M2M JWT.'
+    'Keystone: legacy mode'
   ),
   (
     gen_random_uuid(),
     'kaiano',
     'flags.keystone.clerk_auth_enabled',
     FALSE,
-    'Project Keystone: enable Clerk RS256 JWT verification. Enable before disabling legacy auth.'
+    'Keystone: v1 mode'
   );
