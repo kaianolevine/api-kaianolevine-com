@@ -11,6 +11,12 @@ async def test_version_endpoint_returns_package_version(client) -> None:
     assert "." in data["version"]
 
 
+async def test_root_redirects_to_docs(client) -> None:
+    resp = await client.get("/", follow_redirects=False)
+    assert resp.status_code == 307
+    assert resp.headers["location"] == "/docs"
+
+
 async def test_openapi_version_matches_version_endpoint(client) -> None:
     version_resp = await client.get("/version")
     openapi_resp = await client.get("/openapi.json")
