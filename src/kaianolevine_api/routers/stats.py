@@ -47,8 +47,13 @@ async def stats_overview(
         )
     ).scalar_one()
 
-    sets = (await session.execute(select(DbSet.set_date))).scalars().all()
-    years_active = len({d.year for d in sets})
+    years_active = (
+        await session.execute(
+            select(
+                func.count(func.distinct(func.extract("year", DbSet.set_date)))
+            ).select_from(DbSet)
+        )
+    ).scalar_one()
 
     most_played = (
         await session.execute(
