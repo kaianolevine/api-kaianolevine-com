@@ -1,3 +1,10 @@
+## [1.18.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.18.0...v1.18.1) (2026-04-10)
+
+
+### Bug Fixes
+
+* migration details ([69707d7](https://github.com/mini-app-polis/api-kaianolevine-com/commit/69707d76f067071a11a90ba73e7baee4f41e488a))
+
 # [1.18.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.17.0...v1.18.0) (2026-04-10)
 
 
