@@ -149,7 +149,7 @@ class PipelineEvaluationCreate(BaseModel):
     dimension: str  # structural_conformance | pipeline_consistency |
     # testing_coverage | documentation_coverage |
     # cd_readiness | cross_repo_coherence | standards_currency
-    severity: str  # ERROR | WARN | INFO
+    severity: Literal["CRITICAL", "ERROR", "WARN", "INFO", "SUCCESS"]
     finding: str
     suggestion: str | None = None
     standards_version: str = "6.0"
