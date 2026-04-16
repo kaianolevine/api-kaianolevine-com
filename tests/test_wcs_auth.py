@@ -121,7 +121,9 @@ async def test_get_note_forbidden_for_stranger_without_grant(
     note = await _create_note(client, tr["id"])
     assert note["is_default_visible"] is False
 
-    upsert = await stranger_client.post("/v1/wcs/me", json={"email": "", "display_name": "S"})
+    upsert = await stranger_client.post(
+        "/v1/wcs/me", json={"email": "", "display_name": "S"}
+    )
     assert upsert.status_code == 200
 
     r = await stranger_client.get(f"/v1/wcs/notes/{note['id']}")

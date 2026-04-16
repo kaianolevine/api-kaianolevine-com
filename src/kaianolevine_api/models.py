@@ -359,7 +359,9 @@ class WcsUserProfile(Base):
     __tablename__ = "wcs_user_profiles"
 
     user_id: Mapped[str] = mapped_column(String, primary_key=True)
-    email: Mapped[str] = mapped_column(String, nullable=False, default="", server_default="")
+    email: Mapped[str] = mapped_column(
+        String, nullable=False, default="", server_default=""
+    )
     display_name: Mapped[str] = mapped_column(
         String, nullable=False, default="", server_default=""
     )
@@ -413,5 +415,7 @@ class WcsNoteGrant(Base):
         UniqueConstraint("user_id", "note_id", name="uq_wcs_note_grants_user_note"),
     )
 
-    user: Mapped[WcsUserProfile] = relationship(back_populates="grants", lazy="selectin")
+    user: Mapped[WcsUserProfile] = relationship(
+        back_populates="grants", lazy="selectin"
+    )
     note: Mapped[WcsNote] = relationship(back_populates="grants", lazy="selectin")
