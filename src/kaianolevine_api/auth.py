@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from fastapi import Depends, Header
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import Settings, get_settings
+from .database import get_db_session
+from .models import WcsUserProfile
+from .schemas import api_error
 
 # ---------------------------------------------------------------------------
 # Authentication
@@ -53,3 +58,20 @@ def get_current_owner(
     to real user traffic. See module docstring above for the upgrade path.
     """
     return x_owner_id or settings.KAIANO_API_OWNER_ID
+
+
+async def require_wcs_admin(
+    owner_id: str = Depends(get_current_owner),
+    session: AsyncSession = Depends(get_db_session),
+) -> str:
+    """
+    Ensures the caller (Clerk sub in X-Owner-Id) is a WCS admin.
+    The WCS site SSR passes the Clerk `sub` as X-Owner-Id on admin API calls.
+    """
+    result = await session.execute(
+        select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
+    )
+    profile = result.scalars().first()
+    if profile is None or not profile.is_admin:
+        raise api_error(403, "forbidden", "WCS admin access required")
+    return owner_id

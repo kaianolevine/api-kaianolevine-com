@@ -14,13 +14,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_owner
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import WcsNote as DbNote
+from ..models import WcsNoteGrant, WcsUserProfile
 from ..models import WcsTranscript as DbTranscript
 from ..schemas import (
     Envelope,
@@ -32,6 +33,7 @@ from ..schemas import (
     api_error,
     success_envelope,
 )
+from ..services.wcs_access import user_can_see_note
 
 router = APIRouter()
 log = logger_mod.get_logger()
@@ -176,9 +178,23 @@ async def list_notes(
 ) -> Envelope[list[WcsNoteItem]]:
     settings = get_settings()
 
+    admin_exists = exists().where(
+        WcsUserProfile.user_id == owner_id,
+        WcsUserProfile.is_admin.is_(True),
+    )
+    grant_exists = exists().where(
+        WcsNoteGrant.user_id == owner_id,
+        WcsNoteGrant.note_id == DbNote.id,
+    )
+    accessible = or_(
+        DbNote.is_default_visible.is_(True),
+        admin_exists,
+        grant_exists,
+    )
+
     stmt = (
         select(DbNote)
-        .where(DbNote.owner_id == owner_id)
+        .where(accessible)
         .order_by(DbNote.session_date.desc().nullslast(), DbNote.created_at.desc())
         .limit(limit)
         .offset(offset)
@@ -189,9 +205,7 @@ async def list_notes(
     if visibility:
         stmt = stmt.where(DbNote.visibility == visibility)
 
-    total_stmt = (
-        select(func.count()).select_from(DbNote).where(DbNote.owner_id == owner_id)
-    )
+    total_stmt = select(func.count()).select_from(DbNote).where(accessible)
     if session_type:
         total_stmt = total_stmt.where(DbNote.session_type == session_type)
     if visibility:
@@ -224,9 +238,8 @@ async def get_note(
     if row is None:
         raise api_error(404, "note_not_found", "Note not found")
 
-    # Private notes are only accessible to their owner
-    if row.visibility == "private" and row.owner_id != owner_id:
-        raise api_error(404, "note_not_found", "Note not found")
+    if not await user_can_see_note(session, owner_id, row):
+        raise api_error(403, "forbidden", "Note not visible for this user")
 
     return success_envelope(
         _to_item(row), count=1, total=1, version=settings.API_VERSION
@@ -280,6 +293,7 @@ def _to_item(row: DbNote) -> WcsNoteItem:
         instructors=row.instructors or [],
         students=row.students or [],
         organization=row.organization or "",
+        is_default_visible=row.is_default_visible,
         visibility=row.visibility,
         model=row.model,
         provider=row.provider,

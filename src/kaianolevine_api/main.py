@@ -24,6 +24,7 @@ from .routers import (
     spotify,
     stats,
     tracks,
+    wcs_auth,
     wcs_notes,
     webhook,
 )
@@ -57,7 +58,7 @@ def _build_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -146,6 +147,7 @@ def _build_app() -> FastAPI:
     app.include_router(contact.router, prefix="/v1", tags=["contact"])
     app.include_router(resume.router, prefix="/v1", tags=["resume"])
     app.include_router(wcs_notes.router, prefix="/v1", tags=["wcs"])
+    app.include_router(wcs_auth.router, prefix="/v1", tags=["wcs"])
 
     return app
 

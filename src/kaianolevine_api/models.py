@@ -336,6 +336,9 @@ class WcsNote(Base):
     organization: Mapped[str] = mapped_column(
         String, nullable=False, default="", server_default=""
     )
+    is_default_visible: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -343,3 +346,72 @@ class WcsNote(Base):
     transcript: Mapped[WcsTranscript] = relationship(
         back_populates="notes", lazy="selectin"
     )
+    grants: Mapped[list[WcsNoteGrant]] = relationship(
+        back_populates="note",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class WcsUserProfile(Base):
+    """Clerk user identity for WCS site access control."""
+
+    __tablename__ = "wcs_user_profiles"
+
+    user_id: Mapped[str] = mapped_column(String, primary_key=True)
+    email: Mapped[str] = mapped_column(String, nullable=False, default="", server_default="")
+    display_name: Mapped[str] = mapped_column(
+        String, nullable=False, default="", server_default=""
+    )
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_seen_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    grants: Mapped[list[WcsNoteGrant]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class WcsNoteGrant(Base):
+    """Explicit per-user access to a WCS note."""
+
+    __tablename__ = "wcs_note_grants"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("wcs_user_profiles.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    note_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("wcs_notes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    granted_by: Mapped[str] = mapped_column(String, nullable=False)
+    granted_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "note_id", name="uq_wcs_note_grants_user_note"),
+    )
+
+    user: Mapped[WcsUserProfile] = relationship(back_populates="grants", lazy="selectin")
+    note: Mapped[WcsNote] = relationship(back_populates="grants", lazy="selectin")

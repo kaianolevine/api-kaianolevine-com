@@ -423,11 +423,61 @@ class WcsNoteItem(BaseModel):
     instructors: list[str]
     students: list[str]
     organization: str
+    is_default_visible: bool
     visibility: str
     model: str
     provider: str
     notes_json: dict[str, Any]
     created_at: dt.datetime
+
+
+class WcsUserProfileOut(BaseModel):
+    user_id: str
+    email: str
+    display_name: str
+    is_admin: bool
+    created_at: dt.datetime
+    last_seen_at: dt.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WcsUserProfilePatch(BaseModel):
+    is_admin: bool | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WcsNoteGrantOut(BaseModel):
+    id: uuid.UUID
+    user_id: str
+    note_id: uuid.UUID
+    granted_by: str
+    granted_at: dt.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WcsNoteGrantCreate(BaseModel):
+    user_id: str
+    note_id: uuid.UUID
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WcsMeUpsert(BaseModel):
+    email: str = ""
+    display_name: str = ""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WcsNoteDefaultVisiblePatch(BaseModel):
+    """PATCH /v1/wcs/admin/notes/{note_id}/visibility — default catalog visibility."""
+
+    is_default_visible: bool
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class WcsNotePatch(BaseModel):

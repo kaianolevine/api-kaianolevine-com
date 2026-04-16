@@ -4,6 +4,23 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
+from sqlalchemy import text
+
+
+@pytest.fixture(autouse=True)
+async def seed_dev_owner_wcs_admin(reset_db, async_engine) -> None:
+    """X-Owner-Id dev-owner can see all notes via WCS admin flag (matches test cog identity)."""
+    async with async_engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO wcs_user_profiles (user_id, email, display_name, is_admin) "
+                "VALUES ('dev-owner', '', '', 1) "
+                "ON CONFLICT (user_id) DO UPDATE SET is_admin = excluded.is_admin"
+            )
+        )
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -114,6 +131,7 @@ async def test_create_note_output_shape(client) -> None:
     assert note["visibility"] == "private"
     assert note["model"] == "claude-sonnet-4-6"
     assert note["provider"] == "anthropic"
+    assert note["is_default_visible"] is False
     assert isinstance(note["notes_json"], dict)
 
 
