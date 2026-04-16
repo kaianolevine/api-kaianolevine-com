@@ -1,3 +1,10 @@
+## [1.21.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.21.0...v1.21.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* notes auth for admin specifically ([6898396](https://github.com/mini-app-polis/api-kaianolevine-com/commit/68983969a5858accd1ba8c03687d761d2ca93763))
+
 # [1.21.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.20.0...v1.21.0) (2026-04-16)
 
 
