@@ -1,3 +1,10 @@
+## [1.25.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.25.0...v1.25.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* removing auth required for get flags ([61c5fd1](https://github.com/mini-app-polis/api-kaianolevine-com/commit/61c5fd1d92d9986ecb32854eef64c17b7773d43a))
+
 # [1.25.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.24.0...v1.25.0) (2026-04-17)
 
 
