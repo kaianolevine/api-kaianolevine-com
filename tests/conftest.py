@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator, Iterator
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -21,11 +22,11 @@ os.environ.setdefault("CONTACT_FROM_EMAIL", "from@example.com")
 os.environ.setdefault("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
 os.environ.setdefault("CORS_ORIGINS", '["https://kaianolevine.com"]')
 
+from kaianolevine_api import auth as auth_mod  # noqa: E402
 from kaianolevine_api.config import get_settings  # noqa: E402
 from kaianolevine_api.database import get_db_session  # noqa: E402
 from kaianolevine_api.main import app  # noqa: E402
 from kaianolevine_api.models import Base  # noqa: E402
-from kaianolevine_api.models import FeatureFlag as DbFeatureFlag  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -65,32 +66,6 @@ async def reset_db(async_engine) -> AsyncIterator[None]:
     yield
 
 
-@pytest.fixture(autouse=True)
-async def seed_keystone_feature_flags(reset_db, async_engine) -> None:
-    """Match production migration 013 defaults so auth tests see clerk off, legacy on."""
-    sessionmaker = async_sessionmaker(
-        async_engine, expire_on_commit=False, autoflush=False
-    )
-    async with sessionmaker() as session:
-        session.add(
-            DbFeatureFlag(
-                owner_id="kaiano",
-                name="flags.keystone.legacy_auth_enabled",
-                enabled=True,
-                description="Keystone: legacy X-Owner-Id auth",
-            )
-        )
-        session.add(
-            DbFeatureFlag(
-                owner_id="kaiano",
-                name="flags.keystone.clerk_auth_enabled",
-                enabled=False,
-                description="Keystone: Clerk JWT auth",
-            )
-        )
-        await session.commit()
-
-
 @pytest.fixture
 async def client(async_engine) -> AsyncIterator[httpx.AsyncClient]:
     sessionmaker = async_sessionmaker(
@@ -101,14 +76,18 @@ async def client(async_engine) -> AsyncIterator[httpx.AsyncClient]:
         async with sessionmaker() as session:
             yield session
 
+    original_verify = auth_mod.verify_clerk_jwt
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value="dev-owner")
+
     app.dependency_overrides[get_db_session] = override_get_db_session
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
-        headers={"X-Owner-Id": "dev-owner"},
+        headers={"Authorization": "Bearer test-token"},
     ) as client:
         yield client
 
     app.dependency_overrides.pop(get_db_session, None)
+    auth_mod.verify_clerk_jwt = original_verify

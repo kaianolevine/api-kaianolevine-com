@@ -17,11 +17,11 @@ from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import get_current_owner, require_wcs_admin
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import WcsNote as DbNote
-from ..models import WcsNoteGrant, WcsUserProfile
+from ..models import WcsNoteGrant
 from ..models import WcsTranscript as DbTranscript
 from ..schemas import (
     Envelope,
@@ -163,9 +163,9 @@ async def create_note(
     response_model=Envelope[list[WcsNoteItem]],
     summary="List WCS notes",
     description=(
-        "List structured notes with optional filtering by session type and visibility. "
-        "Private notes are only returned for the authenticated owner. "
-        "Public notes are visible to all."
+        "List notes visible to the authenticated user: default-visible notes plus "
+        "any notes explicitly granted. Admins wanting all notes regardless of "
+        "visibility should use GET /v1/wcs/notes/all."
     ),
 )
 async def list_notes(
@@ -178,17 +178,14 @@ async def list_notes(
 ) -> Envelope[list[WcsNoteItem]]:
     settings = get_settings()
 
+    # Standard user filtering — no admin bypass.
+    # Admins wanting all notes should use GET /v1/wcs/notes/all.
     grant_exists = exists().where(
         WcsNoteGrant.user_id == owner_id,
         WcsNoteGrant.note_id == DbNote.id,
     )
-    admin_exists = exists().where(
-        WcsUserProfile.user_id == owner_id,
-        WcsUserProfile.is_admin.is_(True),
-    )
     accessible = or_(
         DbNote.is_default_visible.is_(True),
-        admin_exists,
         grant_exists,
     )
 
@@ -206,6 +203,48 @@ async def list_notes(
         stmt = stmt.where(DbNote.visibility == visibility)
 
     total_stmt = select(func.count()).select_from(DbNote).where(accessible)
+    if session_type:
+        total_stmt = total_stmt.where(DbNote.session_type == session_type)
+    if visibility:
+        total_stmt = total_stmt.where(DbNote.visibility == visibility)
+    total = (await session.execute(total_stmt)).scalar_one()
+
+    rows = (await session.execute(stmt)).scalars().all()
+    data = [_to_item(r) for r in rows]
+    return success_envelope(
+        data, count=len(data), total=total or 0, version=settings.API_VERSION
+    )
+
+
+@router.get(
+    "/wcs/notes/all",
+    response_model=Envelope[list[WcsNoteItem]],
+    summary="List all WCS notes (admin only)",
+    description="Returns all notes regardless of visibility. Requires WCS admin.",
+)
+async def list_all_notes(
+    session_type: Annotated[str | None, Query()] = None,
+    visibility: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    _admin_id: str = Depends(require_wcs_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> Envelope[list[WcsNoteItem]]:
+    settings = get_settings()
+
+    stmt = (
+        select(DbNote)
+        .order_by(DbNote.session_date.desc().nullslast(), DbNote.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+    if session_type:
+        stmt = stmt.where(DbNote.session_type == session_type)
+    if visibility:
+        stmt = stmt.where(DbNote.visibility == visibility)
+
+    total_stmt = select(func.count()).select_from(DbNote)
     if session_type:
         total_stmt = total_stmt.where(DbNote.session_type == session_type)
     if visibility:

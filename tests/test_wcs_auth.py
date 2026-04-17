@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import httpx
 import pytest
 from sqlalchemy import text
 
+from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.main import app
 
 
@@ -23,13 +26,16 @@ async def seed_dev_owner_wcs_admin(reset_db, async_engine) -> None:
 
 @pytest.fixture
 async def stranger_client(client):  # noqa: ARG001 — ensures DB override is active
+    original_verify = auth_mod.verify_clerk_jwt
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
-        headers={"X-Owner-Id": "stranger-user"},
+        headers={"Authorization": "Bearer stranger-token"},
     ) as c:
         yield c
+    auth_mod.verify_clerk_jwt = original_verify
 
 
 async def test_wcs_me_get_returns_profile(client) -> None:

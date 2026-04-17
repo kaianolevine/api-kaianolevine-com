@@ -211,7 +211,7 @@ async def test_list_notes_empty(client) -> None:
     assert body["meta"]["total"] == 0
 
 
-async def test_list_notes_returns_created_notes(client) -> None:
+async def test_list_all_notes_returns_created_notes_for_admin(client) -> None:
     transcript = await _create_transcript(client)
     await _create_note(client, transcript["id"])
     await _create_note(
@@ -222,14 +222,14 @@ async def test_list_notes_returns_created_notes(client) -> None:
         organization="Swingesota",
     )
 
-    resp = await client.get("/v1/wcs/notes")
+    resp = await client.get("/v1/wcs/notes/all")
     assert resp.status_code == 200
     j = resp.json()
     assert j["meta"]["count"] == 2
     assert j["meta"]["total"] == 2
 
 
-async def test_list_notes_filter_by_session_type(client) -> None:
+async def test_list_all_notes_filter_by_session_type(client) -> None:
     transcript = await _create_transcript(client)
     await _create_note(client, transcript["id"], session_type="private_lesson")
     await _create_note(
@@ -247,7 +247,7 @@ async def test_list_notes_filter_by_session_type(client) -> None:
         organization="Freedom Swing",
     )
 
-    resp = await client.get("/v1/wcs/notes", params={"session_type": "group_class"})
+    resp = await client.get("/v1/wcs/notes/all", params={"session_type": "group_class"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["meta"]["total"] == 2
@@ -256,12 +256,12 @@ async def test_list_notes_filter_by_session_type(client) -> None:
     assert all(n["session_type"] == "group_class" for n in data)
 
 
-async def test_list_notes_filter_by_visibility(client) -> None:
+async def test_list_all_notes_filter_by_visibility(client) -> None:
     transcript = await _create_transcript(client)
     await _create_note(client, transcript["id"], visibility="private")
     await _create_note(client, transcript["id"], visibility="public")
 
-    resp = await client.get("/v1/wcs/notes", params={"visibility": "public"})
+    resp = await client.get("/v1/wcs/notes/all", params={"visibility": "public"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["meta"]["total"] == 1
@@ -270,17 +270,17 @@ async def test_list_notes_filter_by_visibility(client) -> None:
     assert data[0]["visibility"] == "public"
 
 
-async def test_list_notes_pagination(client) -> None:
+async def test_list_all_notes_pagination(client) -> None:
     transcript = await _create_transcript(client)
     for _ in range(5):
         await _create_note(client, transcript["id"])
 
-    resp = await client.get("/v1/wcs/notes", params={"limit": 3, "offset": 0})
+    resp = await client.get("/v1/wcs/notes/all", params={"limit": 3, "offset": 0})
     rj = resp.json()
     assert rj["meta"]["count"] == 3
     assert rj["meta"]["total"] == 5
 
-    resp2 = await client.get("/v1/wcs/notes", params={"limit": 3, "offset": 3})
+    resp2 = await client.get("/v1/wcs/notes/all", params={"limit": 3, "offset": 3})
     r2 = resp2.json()
     assert r2["meta"]["count"] == 2
     assert r2["meta"]["total"] == 5
