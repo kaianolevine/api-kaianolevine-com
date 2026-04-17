@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.22.0...v1.23.0) (2026-04-17)
+
+
+### Features
+
+* upgrade common for auth ([798f22a](https://github.com/mini-app-polis/api-kaianolevine-com/commit/798f22a6cb13ffe5c1f44a0aff0e73f5f1fce9cf))
+
 # [1.22.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.21.1...v1.22.0) (2026-04-17)
 
 
