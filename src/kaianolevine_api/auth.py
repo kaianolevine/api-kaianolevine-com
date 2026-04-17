@@ -1,11 +1,20 @@
+"""Authentication — Clerk JWT verification (Project Keystone Phase 3).
+
+All requests must carry ``Authorization: Bearer <jwt>`` where the JWT is
+either a Clerk session token (human user) or a Clerk M2M JWT (cog/service).
+Both are RS256 tokens verified locally via JWKS — no network call to Clerk.
+
+Required env vars:
+  CLERK_JWKS_URL — e.g. https://clerk.kaianolevine.com/.well-known/jwks.json
+  CLERK_ISSUER   — e.g. https://clerk.kaianolevine.com
+"""
+
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from typing import Any
 
-import httpx
 import jwt
 from fastapi import Depends, Header
 from jwt import PyJWK
@@ -16,21 +25,6 @@ from .config import Settings, get_settings
 from .database import get_db_session
 from .models import WcsUserProfile
 from .schemas import api_error
-from .services.flags import is_enabled
-
-logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Authentication — Project Keystone dual-auth bridge
-#
-# Flags (DB):
-#   flags.keystone.legacy_auth_enabled  → accept X-Owner-Id (+ KAIANO_API_OWNER_ID)
-#   flags.keystone.clerk_auth_enabled   → verify Authorization: Bearer <JWT> (RS256)
-#
-# Phase 1: legacy=TRUE,  clerk=FALSE  → X-Owner-Id only
-# Phase 2: legacy=TRUE,  clerk=TRUE   → JWT first, then legacy
-# Phase 3: legacy=FALSE, clerk=TRUE   → JWT only
-# ---------------------------------------------------------------------------
 
 # JWKS document cache: url -> (monotonic_expiry, jwks_json). TTL 5 minutes.
 _jwks_doc_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -38,6 +32,8 @@ _jwks_doc_cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
 async def _fetch_jwks_document(jwks_url: str) -> dict[str, Any]:
     """Fetch JWKS JSON with httpx; reuse cached document for 5 minutes."""
+    import httpx
+
     now = time.monotonic()
     hit = _jwks_doc_cache.get(jwks_url)
     if hit is not None:
@@ -88,98 +84,47 @@ def _decode_clerk_jwt_sync(
         )
         sub = payload.get("sub")
         return str(sub) if sub is not None else None
-    except Exception as exc:
-        logger.error("[keystone] JWT decode failed: %s", exc)
+    except Exception:
         return None
 
 
 async def verify_clerk_jwt(token: str, settings: Settings) -> str | None:
     """
-    Verify a Clerk session JWT (RS256) or M2M opaque token.
-    Returns the ``sub`` claim on success, or None on failure / misconfiguration.
+    Verify a Clerk RS256 JWT (session token or M2M JWT).
+    Returns the ``sub`` claim on success, or None on failure.
     """
     if not settings.CLERK_JWKS_URL or not settings.CLERK_ISSUER:
         return None
-
-    # Opaque tokens are not JWTs; verify them via Clerk's BAPI endpoint.
-    if token.count(".") != 2:
-        return await _verify_opaque_token(token, settings)
-
     try:
         jwks_doc = await _fetch_jwks_document(settings.CLERK_JWKS_URL)
-    except Exception as exc:
-        logger.error("[keystone] JWKS fetch failed: %s", exc)
+    except Exception:
         return None
     return await asyncio.to_thread(_decode_clerk_jwt_sync, token, settings, jwks_doc)
 
 
-async def _verify_opaque_token(token: str, settings: Settings) -> str | None:
-    """
-    Verify a Clerk M2M opaque token via the BAPI verify endpoint.
-    Returns ``sub`` (machine subject) on success, or None on failure.
-    """
-    secret_key = settings.CLERK_SECRET_KEY
-    if not secret_key:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                "https://api.clerk.com/v1/m2m_tokens/verify",
-                headers={
-                    "Authorization": f"Bearer {secret_key}",
-                    "Content-Type": "application/json",
-                },
-                json={"token": token},
-            )
-        if not resp.is_success:
-            return None
-        data = resp.json()
-        sub = data.get("subject") or data.get("sub")
-        return str(sub) if sub else None
-    except Exception as exc:
-        logger.error("[keystone] Opaque token verify failed: %s", exc)
-        return None
-
-
 async def get_current_owner(
     authorization: str | None = Header(default=None, alias="Authorization"),
-    x_owner_id: str | None = Header(default=None, alias="X-Owner-Id"),
     settings: Settings = Depends(get_settings),
-    session: AsyncSession = Depends(get_db_session),
 ) -> str:
     """
-    Project Keystone dual-auth bridge.
-
-    Resolves owner identity from Clerk JWT (``sub``) and/or legacy ``X-Owner-Id``,
-    depending on ``flags.keystone.*`` feature flags in the database.
+    Resolves owner identity from a Clerk JWT.
+    Raises 401 if the token is missing or invalid.
     """
-    clerk_enabled = await is_enabled("flags.keystone.clerk_auth_enabled", session)
-    legacy_enabled = await is_enabled("flags.keystone.legacy_auth_enabled", session)
-
-    if clerk_enabled and authorization:
+    if authorization:
         scheme, _, token = authorization.partition(" ")
         if scheme.lower() == "bearer" and token:
             sub = await verify_clerk_jwt(token, settings)
             if sub:
                 return sub
-        if not legacy_enabled:
-            raise api_error(401, "unauthorized", "Invalid or expired token")
 
-    if legacy_enabled:
-        owner = x_owner_id or settings.KAIANO_API_OWNER_ID
-        if owner:
-            return owner
-
-    raise api_error(401, "unauthorized", "Authentication required")
+    raise api_error(401, "unauthorized", "Valid Bearer token required")
 
 
 async def require_wcs_admin(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> str:
-    """
-    Ensures the caller (Clerk ``sub`` from JWT or X-Owner-Id) is a WCS admin.
-    """
+    """Ensures the caller is a WCS admin."""
     result = await session.execute(
         select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
     )

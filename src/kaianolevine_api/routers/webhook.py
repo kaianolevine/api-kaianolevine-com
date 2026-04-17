@@ -79,7 +79,7 @@ async def prefect_webhook(
         )
 
     row = DbEval(
-        owner_id=settings.KAIANO_API_OWNER_ID,
+        owner_id="system",
         run_id=payload.flow_run_id,
         repo=repo,
         dimension="pipeline_consistency",

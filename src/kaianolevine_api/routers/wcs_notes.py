@@ -173,10 +173,6 @@ async def list_notes(
     visibility: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
-    as_user: Annotated[
-        bool,
-        Query(description="Skip admin override, apply standard user filtering."),
-    ] = False,  # TODO: remove when X-Owner-Id auth is replaced with Clerk JWT auth
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsNoteItem]]:
@@ -186,23 +182,15 @@ async def list_notes(
         WcsNoteGrant.user_id == owner_id,
         WcsNoteGrant.note_id == DbNote.id,
     )
-
-    if as_user:
-        # Standard user filtering — ignore admin status
-        accessible = or_(
-            DbNote.is_default_visible.is_(True),
-            grant_exists,
-        )
-    else:
-        admin_exists = exists().where(
-            WcsUserProfile.user_id == owner_id,
-            WcsUserProfile.is_admin.is_(True),
-        )
-        accessible = or_(
-            DbNote.is_default_visible.is_(True),
-            admin_exists,
-            grant_exists,
-        )
+    admin_exists = exists().where(
+        WcsUserProfile.user_id == owner_id,
+        WcsUserProfile.is_admin.is_(True),
+    )
+    accessible = or_(
+        DbNote.is_default_visible.is_(True),
+        admin_exists,
+        grant_exists,
+    )
 
     stmt = (
         select(DbNote)
