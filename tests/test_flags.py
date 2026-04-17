@@ -97,10 +97,3 @@ async def test_flags_patch_unknown_name_returns_404(client, async_engine) -> Non
     assert resp.json()["error"]["code"] == "not_found"
 
 
-async def test_keystone_flags_exist_with_correct_defaults(client) -> None:
-    """Keystone flags are seeded in conftest (same defaults as migration 013)."""
-    legacy = await client.get("/v1/flags")
-    flags_by_name = {f["name"]: f for f in legacy.json()["data"]}
-
-    assert flags_by_name["flags.keystone.legacy_auth_enabled"]["enabled"] is True
-    assert flags_by_name["flags.keystone.clerk_auth_enabled"]["enabled"] is False

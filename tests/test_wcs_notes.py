@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 @pytest.fixture(autouse=True)
 async def seed_dev_owner_wcs_admin(reset_db, async_engine) -> None:
-    """X-Owner-Id dev-owner can see all notes via WCS admin flag (matches test cog identity)."""
+    """Seeds dev-owner as WCS admin so all note tests run as an authenticated admin."""
     async with async_engine.begin() as conn:
         await conn.execute(
             text(
