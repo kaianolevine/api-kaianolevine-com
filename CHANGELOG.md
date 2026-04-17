@@ -1,3 +1,16 @@
+# [1.25.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.24.0...v1.25.0) (2026-04-17)
+
+
+### Bug Fixes
+
+* tests to support current functionality ([b17cf57](https://github.com/mini-app-polis/api-kaianolevine-com/commit/b17cf57ebdd2e3e793929bf435040d07a8df6b96))
+
+
+### Features
+
+* adding admin notes endpoint ([0752c1b](https://github.com/mini-app-polis/api-kaianolevine-com/commit/0752c1b31f8817c9801ee484fe659a0974c03ee5))
+* finishing the proper implementation of auth through clerk ([5b89006](https://github.com/mini-app-polis/api-kaianolevine-com/commit/5b8900616d13d20f2749ad72a8413c02016de40b))
+
 # [1.24.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.23.0...v1.24.0) (2026-04-17)
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "kaianolevine-api"
-version = "1.24.0"
+version = "1.25.0"
 description = "FastAPI service powering api.kaianolevine.com — sets, tracks, catalog, stats, evaluations, contact, and resume."
 requires-python = ">=3.11"
 dependencies = [
