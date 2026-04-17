@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # Clerk JWT (Project Keystone) — required when flags.keystone.clerk_auth_enabled is TRUE
     CLERK_JWKS_URL: str | None = None
     CLERK_ISSUER: str | None = None
+    CLERK_SECRET_KEY: str | None = None
 
     # Contact form
     BREVO_API_KEY: str | None = None

@@ -95,17 +95,50 @@ def _decode_clerk_jwt_sync(
 
 async def verify_clerk_jwt(token: str, settings: Settings) -> str | None:
     """
-    Verify a Clerk session JWT or M2M JWT (RS256 via JWKS).
+    Verify a Clerk session JWT (RS256) or M2M opaque token.
     Returns the ``sub`` claim on success, or None on failure / misconfiguration.
     """
     if not settings.CLERK_JWKS_URL or not settings.CLERK_ISSUER:
         return None
+
+    # Opaque tokens are not JWTs; verify them via Clerk's BAPI endpoint.
+    if token.count(".") != 2:
+        return await _verify_opaque_token(token, settings)
+
     try:
         jwks_doc = await _fetch_jwks_document(settings.CLERK_JWKS_URL)
     except Exception as exc:
         logger.error("[keystone] JWKS fetch failed: %s", exc)
         return None
     return await asyncio.to_thread(_decode_clerk_jwt_sync, token, settings, jwks_doc)
+
+
+async def _verify_opaque_token(token: str, settings: Settings) -> str | None:
+    """
+    Verify a Clerk M2M opaque token via the BAPI verify endpoint.
+    Returns ``sub`` (machine subject) on success, or None on failure.
+    """
+    secret_key = settings.CLERK_SECRET_KEY
+    if not secret_key:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                "https://api.clerk.com/v1/m2m_tokens/verify",
+                headers={
+                    "Authorization": f"Bearer {secret_key}",
+                    "Content-Type": "application/json",
+                },
+                json={"token": token},
+            )
+        if not resp.is_success:
+            return None
+        data = resp.json()
+        sub = data.get("subject") or data.get("sub")
+        return str(sub) if sub else None
+    except Exception as exc:
+        logger.error("[keystone] Opaque token verify failed: %s", exc)
+        return None
 
 
 async def get_current_owner(
