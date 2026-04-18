@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.25.1...v1.26.0) (2026-04-18)
+
+
+### Features
+
+* restore opaque token verification ([43cc08a](https://github.com/mini-app-polis/api-kaianolevine-com/commit/43cc08aae035ebe94b84779b9aa669ce4d4751f4))
+
 ## [1.25.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.25.0...v1.25.1) (2026-04-17)
 
 
