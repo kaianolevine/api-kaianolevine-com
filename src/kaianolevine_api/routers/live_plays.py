@@ -77,7 +77,6 @@ async def ingest_live_plays(
 )
 async def list_recent_live_plays(
     limit: int = Query(default=50, ge=1, le=200),
-    owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[LivePlayRecord]]:
     settings = get_settings()
@@ -90,18 +89,9 @@ async def list_recent_live_plays(
             },
         )
 
-    stmt = (
-        select(DbLivePlay)
-        .where(DbLivePlay.owner_id == owner_id)
-        .order_by(DbLivePlay.played_at.desc())
-        .limit(limit)
-    )
+    stmt = select(DbLivePlay).order_by(DbLivePlay.played_at.desc()).limit(limit)
     total = (
-        await session.execute(
-            select(func.count())
-            .select_from(DbLivePlay)
-            .where(DbLivePlay.owner_id == owner_id)
-        )
+        await session.execute(select(func.count()).select_from(DbLivePlay))
     ).scalar_one()
     rows = (await session.execute(stmt)).scalars().all()
 
