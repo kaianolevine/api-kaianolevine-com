@@ -1,3 +1,11 @@
+# [1.28.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.27.2...v1.28.0) (2026-04-20)
+
+
+### Features
+
+* **config:** declare LOGGING_LEVEL, KAIANO_API_OWNER_ID, STANDARDS_VERSION, HTTP_CLIENT_TIMEOUT_SECS on Settings (CFG-001, CFG-002, TEST-013) ([4a4fc1d](https://github.com/mini-app-polis/api-kaianolevine-com/commit/4a4fc1d35177eb319d2a67a19ace255c026cda77))
+* **main:** add /health liveness probe (API-010) ([941f26a](https://github.com/mini-app-polis/api-kaianolevine-com/commit/941f26a6f3579589243e0af0e002ca57659465d8))
+
 ## [1.27.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.27.1...v1.27.2) (2026-04-20)
 
 
