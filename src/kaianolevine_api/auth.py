@@ -41,7 +41,8 @@ async def _fetch_jwks_document(jwks_url: str) -> dict[str, Any]:
         if now < expires_at:
             return doc
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    settings = get_settings()
+    async with httpx.AsyncClient(timeout=settings.HTTP_CLIENT_TIMEOUT_SECS) as client:
         resp = await client.get(jwks_url)
         resp.raise_for_status()
         doc = resp.json()
@@ -96,7 +97,7 @@ async def _verify_opaque_token(token: str, settings: Settings) -> str | None:
     if not settings.CLERK_SECRET_KEY:
         return None
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=settings.HTTP_CLIENT_TIMEOUT_SECS) as client:
             resp = await client.post(
                 "https://api.clerk.com/v1/m2m_tokens/verify",
                 headers={

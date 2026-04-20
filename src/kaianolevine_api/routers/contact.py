@@ -137,6 +137,7 @@ async def _read_fields(
 
 
 async def _verify_turnstile(token: str, secret: str, remote_ip: str | None) -> bool:
+    settings = get_settings()
     data = {"secret": secret, "response": token}
     if remote_ip:
         data["remoteip"] = remote_ip
@@ -145,7 +146,7 @@ async def _verify_turnstile(token: str, secret: str, remote_ip: str | None) -> b
         resp = await client.post(
             "https://challenges.cloudflare.com/turnstile/v0/siteverify",
             data=data,
-            timeout=10.0,
+            timeout=settings.HTTP_CLIENT_TIMEOUT_SECS,
         )
         result = resp.json()
         return bool(result.get("success"))
