@@ -8,6 +8,11 @@ Required env vars:
   CLERK_JWKS_URL   — e.g. https://clerk.kaianolevine.com/.well-known/jwks.json
   CLERK_ISSUER     — e.g. https://clerk.kaianolevine.com
   CLERK_SECRET_KEY — Clerk secret key for opaque token verification
+
+Header parity with ``common_python_utils.api_client.CommonPythonApiClient``:
+the client attaches ``Authorization: Bearer <token>`` acquired from Clerk
+and this module verifies tokens arriving in that same header. Any change
+to the accepted header name or token format must be made in both places.
 """
 
 from __future__ import annotations
