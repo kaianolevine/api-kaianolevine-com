@@ -233,13 +233,19 @@ async def create_wcs_grant(
     "/wcs/admin/grants/{grant_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete WCS note grant",
-    description="Admin-only.",
+    description=(
+        "Admin-only. Deletes a single WcsNoteGrant by id and returns "
+        "204 No Content. Requires an authenticated WCS admin via "
+        "Depends(require_wcs_admin)."
+    ),
+    response_model=None,
 )
 async def delete_wcs_grant(
     grant_id: uuid.UUID,
     _admin_id: str = Depends(require_wcs_admin),
     session: AsyncSession = Depends(get_db_session),
 ) -> Response:
+    """Delete a single WcsNoteGrant by id. Admin-only; returns 204 on success."""
     result = await session.execute(
         select(WcsNoteGrant).where(WcsNoteGrant.id == grant_id)
     )

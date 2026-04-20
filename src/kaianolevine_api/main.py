@@ -159,16 +159,29 @@ app = _build_app()
     "/version",
     tags=["meta"],
     summary="API version",
-    description="Returns the currently deployed package version.",
+    description=(
+        "Returns the currently deployed package version. Intentionally public "
+        "and unversioned: the endpoint reports which API version is running, "
+        "so it must be reachable at a stable version-independent path with "
+        "no auth."
+    ),
     response_model=dict,
 )
 async def version() -> dict:
+    """Return the currently deployed package version. Intentionally public."""
     return {"version": app.version}
 
 
 @app.get(
     "/",
     include_in_schema=False,
+    summary="Root redirect to interactive docs",
+    description=(
+        "Redirects to /docs (Swagger UI). Intentionally public — the "
+        "redirect target is itself publicly browsable documentation."
+    ),
+    response_model=None,
 )
 async def root() -> RedirectResponse:
+    """Redirect to the Swagger UI at /docs. Intentionally public."""
     return RedirectResponse(url="/docs")

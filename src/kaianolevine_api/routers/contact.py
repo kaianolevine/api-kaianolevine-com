@@ -204,12 +204,15 @@ def _error_response(
     description=(
         "Accepts JSON or multipart/form-data. Validates a Cloudflare "
         "Turnstile token, then sends an email via Brevo. Only allowed "
-        "from configured CORS_ORIGINS."
+        "from configured CORS_ORIGINS. Intentionally public (no auth "
+        "required): the origin allowlist and Turnstile challenge are "
+        "the gatekeepers, not a bearer token."
     ),
     response_model=None,
     status_code=200,
 )
 async def submit_contact(request: Request) -> Response:
+    """Submit a contact form. Intentionally public — gated by CORS allowlist and Turnstile, not by bearer token."""
     settings = get_settings()
 
     # --- Origin allow-list ---
