@@ -1,3 +1,10 @@
+## [1.28.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.28.0...v1.28.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* close pipeline findings (DOC-002, PRIN-005, TEST-013, TEST-010) ([1d5d715](https://github.com/mini-app-polis/api-kaianolevine-com/commit/1d5d715e81edc032ef8cb6adbc20633c6e604ce5))
+
 # [1.28.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.27.2...v1.28.0) (2026-04-20)
 
 
