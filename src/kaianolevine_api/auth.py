@@ -9,10 +9,11 @@ Required env vars:
   CLERK_ISSUER     — e.g. https://clerk.kaianolevine.com
   CLERK_SECRET_KEY — Clerk secret key for opaque token verification
 
-Header parity with ``mini_app_polis.api.KaianoApiClient``:
-the client attaches ``Authorization: Bearer <token>`` acquired from Clerk
-and this module verifies tokens arriving in that same header. Any change
-to the accepted header name or token format must be made in both places.
+Header parity with the shared ``common-python-utils`` client
+(``mini_app_polis.api.KaianoApiClient``): the client attaches
+``Authorization: Bearer <token>`` acquired from Clerk and this module
+verifies tokens arriving in that same header. Any change to the
+accepted header name or token format must be made in both places.
 """
 
 from __future__ import annotations
