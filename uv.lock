@@ -865,7 +865,7 @@ wheels = [
 
 [[package]]
 name = "kaianolevine-api"
-version = "1.27.2"
+version = "1.28.0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncpg" },
