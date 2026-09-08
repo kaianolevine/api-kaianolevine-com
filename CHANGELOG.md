@@ -1,3 +1,10 @@
+# [1.52.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.7...v1.52.0) (2026-09-08)
+
+
+### Features
+
+* adding notification processing from github and custom ([cc02540](https://github.com/mini-app-polis/api-kaianolevine-com/commit/cc0254074eb3136ded9951cd2088a59848a8b1a9))
+
 ## [1.51.7](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.6...v1.51.7) (2026-09-07)
 
 
