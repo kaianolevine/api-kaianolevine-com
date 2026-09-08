@@ -1,3 +1,10 @@
+# [1.53.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.52.2...v1.53.0) (2026-09-08)
+
+
+### Features
+
+* finalizing notifications and run findings ([fa818a7](https://github.com/mini-app-polis/api-kaianolevine-com/commit/fa818a78d131aad73d15ade4258750567f550f0b))
+
 ## [1.52.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.52.1...v1.52.2) (2026-09-08)
 
 
