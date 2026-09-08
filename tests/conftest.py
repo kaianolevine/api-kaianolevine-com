@@ -28,6 +28,7 @@ os.environ.setdefault(
     "DISCORD_WEBHOOK_URL", "https://discord.test/api/webhooks/1/token"
 )
 os.environ.setdefault("GITHUB_WEBHOOK_SECRET", "test-github-secret")
+os.environ.setdefault("PREFECT_WEBHOOK_SECRET", "test-prefect-token")
 
 from identity.store import (  # noqa: E402
     IdentityBase,

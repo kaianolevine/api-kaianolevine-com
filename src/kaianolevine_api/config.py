@@ -81,6 +81,19 @@ class Settings(BaseSettings):
     # silenced by a constant written here.
     GITHUB_DEFAULT_BRANCH: str = "main"
 
+    # Optional shared secret for the Prefect flow-state webhook, sent in
+    # X-Prefect-Token. Enforced only when set: the caller is Prefect
+    # posting flow states, the worst a stranger can do with the URL is put
+    # noise in a channel, and a required header would be a new way for the
+    # crash backstop to fail silently. See routers.webhook.
+    PREFECT_WEBHOOK_SECRET: str | None = None
+    # Which Prefect state types are worth a message. The cogs' own failure
+    # hooks already report what they can; this route is the backstop for
+    # runs whose process died too hard to report itself, so it overlaps on
+    # ordinary failures by design. Narrow to ["CRASHED"] if the duplicates
+    # outweigh the coverage.
+    PREFECT_NOTIFY_STATES: list[str] = ["CRASHED", "FAILED", "CANCELLED", "TIMEDOUT"]
+
     # Google service account (Drive resume proxy)
     GOOGLE_CLIENT_EMAIL: str | None = None
     GOOGLE_PRIVATE_KEY: str | None = None  # PEM with literal \n — see validator

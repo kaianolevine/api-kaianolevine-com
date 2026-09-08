@@ -25,7 +25,7 @@ Route groups:
 - `/v1/spotify/playlists` — Spotify playlist catalog
 - `/v1/live-plays`, `/v1/live-plays/recent` — VirtualDJ live play history
 - `/v1/ingest` — set ingestion endpoint
-- `/v1/prefect-webhook` — Prefect flow-run webhook
+- `/v1/prefect-webhook` — Prefect flow-state webhook; notifies Discord on failing states (shared-secret authenticated)
 - `/v1/webhooks/github` — GitHub org webhook; filters deliveries by event, action and branch before forwarding to Discord (signature-verified)
 - `/v1/notify` — ad-hoc Discord notifications for cogs and scripts
 - `/v1/contact` — public contact form (CORS + Turnstile gated)
@@ -199,8 +199,8 @@ Deliberately unauthenticated, per API-008 / DOC-011:
 | `GET /v1/evaluations`, `/v1/evaluations/summary`, `/v1/flags` | Pipeline Health and feature flags — read-only, no per-owner content. |
 | `POST /v1/contact` | Contact form. CORS + Turnstile gated rather than credential gated. |
 | `GET /v1/resume` | Public resume proxy. |
-| `POST /v1/prefect-webhook` | Prefect flow state callbacks. Reviewed and accepted as unauthenticated. |
 | `POST /v1/webhooks/github` | GitHub org webhook. Gated by `X-Hub-Signature-256` over the raw body — the only credential GitHub can present — not by a bearer token. |
+| `POST /v1/prefect-webhook` | Prefect flow-state callbacks. Reviewed and accepted as unauthenticated; optional shared secret when `PREFECT_WEBHOOK_SECRET` is set. |
 | `GET /health`, `GET /version`, `GET /` | Platform endpoints. `/` redirects to `/docs`. |
 
 Client parity is maintained with `mini_app_polis.api.KaianoApiClient`,
@@ -261,6 +261,25 @@ Two known gaps, both deliberate. Workflow runs off the default branch are
 dropped, so a pull request whose CI fails is silent until it merges. And
 rebase-and-merge cannot be told apart from a direct push, so a rebase
 merge is announced twice — once by the PR closing, once by the push.
+
+`POST /v1/prefect-webhook` notifies the same channel when Prefect Cloud
+reports a flow run in a failing state, and writes no rows: a crashed
+flow was never graded against the standards catalog. It exists even
+though cogs report their own failures, because
+`make_failure_hook` runs *inside the cog process* — when that process is
+OOM-killed or SIGKILL'd the hook never fires and Prefect Cloud is the
+only witness left. The overlap on ordinary failures is accepted: a crash
+nobody hears about is worse than a crash mentioned twice, and the two
+are told apart by `source`. `PREFECT_NOTIFY_STATES` narrows it.
+
+That route stays public. What a stranger could do with the URL is
+bounded — the message is embeds-only, so nothing in it can mention
+anyone, the display name comes from the flow map rather than the
+payload, and there is no read or write behind it. A required header
+would meanwhile be a new way for the crash backstop to fail silently,
+which costs more than the nuisance it prevents.
+`PREFECT_WEBHOOK_SECRET` is honoured in `X-Prefect-Token` when set and
+skipped when not, so turning it on later needs no code change.
 
 `/v1/notify` requires `notify.messages.send`, carried by the `notifier`
 role. Every declared machine holds it: the scope posts a message and does

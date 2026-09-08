@@ -20,9 +20,7 @@ def test_minimal_note() -> None:
         notes_json={"summary": "Worked on frame and axis."},
     )
     assert out == (
-        "Frame and axis\n\n"
-        "Kaiano | Sarah |  | 2024-01-15\n\n"
-        "Worked on frame and axis."
+        "Frame and axis\n\nKaiano | Sarah |  | 2024-01-15\n\nWorked on frame and axis."
     )
 
 
