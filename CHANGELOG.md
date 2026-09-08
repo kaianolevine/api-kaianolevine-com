@@ -1,3 +1,10 @@
+## [1.52.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.52.0...v1.52.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **deps:** bump openai from 1.109.1 to 3.8.0 ([af703db](https://github.com/mini-app-polis/api-kaianolevine-com/commit/af703db784b1686aefbbfad25fae7c4da2e5db54))
+
 # [1.52.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.7...v1.52.0) (2026-09-08)
 
 
