@@ -26,6 +26,8 @@ Route groups:
 - `/v1/live-plays`, `/v1/live-plays/recent` — VirtualDJ live play history
 - `/v1/ingest` — set ingestion endpoint
 - `/v1/prefect-webhook` — Prefect flow-run webhook
+- `/v1/webhooks/github` — GitHub ci-status webhook; forwards only failing runs to Discord (signature-verified)
+- `/v1/notify` — ad-hoc Discord notifications for cogs and scripts
 - `/v1/contact` — public contact form (CORS + Turnstile gated)
 - `/v1/resume` — resume PDF proxy (Google Drive)
 - `/v1/wcs/transcripts`, `/v1/wcs/notes`, `/v1/wcs/notes/all`, `/v1/wcs/notes/{id}` — WCS notes pipeline (legacy)
@@ -173,7 +175,7 @@ row inserted by hand.
 
 Every route is in exactly one of three states:
 
-- **Scope-guarded** (51) — `Depends(require_scope("<domain>.<resource>.<action>"))`.
+- **Scope-guarded** (52) — `Depends(require_scope("<domain>.<resource>.<action>"))`.
   Roles are named bundles of scopes; a suspended principal is denied
   before roles are consulted.
 - **Authenticated-only** (3) — a verified credential, no scope. This is
@@ -181,7 +183,7 @@ Every route is in exactly one of three states:
   so it cannot require a principal in order to grant one), `GET /v1/wcs/me`
   (reads only the caller's own profile), and `GET /v1/identity/whoami`
   (reports what verify and resolve saw, and authorizes nothing).
-- **Public** (22) — see below.
+- **Public** (23) — see below.
 
 Every decision is audited, allow and deny alike, with the enforcement
 point, principal, scope, outcome and reason.
@@ -198,6 +200,7 @@ Deliberately unauthenticated, per API-008 / DOC-011:
 | `POST /v1/contact` | Contact form. CORS + Turnstile gated rather than credential gated. |
 | `GET /v1/resume` | Public resume proxy. |
 | `POST /v1/prefect-webhook` | Prefect flow state callbacks. Reviewed and accepted as unauthenticated. |
+| `POST /v1/webhooks/github` | GitHub ci-status webhook. Gated by `X-Hub-Signature-256` over the raw body — the only credential GitHub can present — not by a bearer token. |
 | `GET /health`, `GET /version`, `GET /` | Platform endpoints. `/` redirects to `/docs`. |
 
 Client parity is maintained with `mini_app_polis.api.KaianoApiClient`,
@@ -216,3 +219,30 @@ Three-layer observability, aligned with the ecosystem standard:
   JSON format and emoji-prefixed lifecycle lines across the ecosystem.
 - **Healthchecks.io** — external uptime probes hit `/health` (public
   liveness endpoint, no auth, no DB access).
+
+### Notifications
+
+`/v1/webhooks/github` and `/v1/notify` both post to one Discord channel
+webhook (`DISCORD_WEBHOOK_URL`, Doppler-managed). GitHub payloads go to
+that URL's `/github` suffix so Discord renders its own embed from the
+bytes GitHub signed; everything else goes to the bare URL as an ordinary
+message. `services.discord` is the only module that calls it.
+
+The GitHub route exists to keep the channel quiet: GitHub posts every
+check result and only `failure`, `timed_out` and `cancelled` outcomes
+(`failure`/`error` on the legacy `status` event) are forwarded. Everything
+else answers 200 and posts nothing, including a delivery Discord rejected
+— GitHub disables a webhook that collects enough 5xx, so failures go to
+Sentry instead of onto the wire.
+
+`/v1/notify` requires `notify.messages.send`, carried by the `notifier`
+role. Every declared machine holds it: the scope posts a message and does
+nothing else, and a cog that cannot report its own failure reports it
+later than it should. `ops-notifier` exists for notifications that belong
+to no cog — scripts, one-offs, GitHub Actions — so those never have to
+borrow a cog's key.
+
+`GITHUB_NOTIFY_EVENTS` decides which event shapes count, and defaults to
+`workflow_run` and `status`. One failing Actions run also emits
+`check_run` (per job) and `check_suite` for the same failure, so
+forwarding all four shapes would post the same news three times.

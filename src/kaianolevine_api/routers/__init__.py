@@ -9,6 +9,7 @@ __all__ = [
     "ingest",
     "live_plays",
     "webhook",
+    "notifications",
     "contact",
     "resume",
     "wcs_admin",

@@ -53,6 +53,22 @@ class Settings(BaseSettings):
     CONTACT_FROM_EMAIL: str | None = None
     TURNSTILE_SECRET_KEY: str | None = None
 
+    # Discord notifications (GitHub CI failures + the /notify route).
+    # One webhook URL for both: services.discord appends Discord's /github
+    # suffix for GitHub-shaped payloads and posts to the bare URL otherwise,
+    # so a value pasted with the suffix already on it still works.
+    DISCORD_WEBHOOK_URL: str | None = None
+    # Shared secret configured on the GitHub org webhook. Unset means the
+    # route rejects every delivery rather than accepting unsigned ones.
+    GITHUB_WEBHOOK_SECRET: str | None = None
+    # Which GitHub events may reach Discord. One failing Actions run emits
+    # check_run (per job), check_suite and workflow_run for the same failure;
+    # forwarding all three posts the same news three times. workflow_run is
+    # the run-level summary and status covers non-Actions checks, so the two
+    # of them report every failure exactly once. Widen it here — not in the
+    # route — if a check that reports through check_run only ever appears.
+    GITHUB_NOTIFY_EVENTS: list[str] = ["workflow_run", "status"]
+
     # Google service account (Drive resume proxy)
     GOOGLE_CLIENT_EMAIL: str | None = None
     GOOGLE_PRIVATE_KEY: str | None = None  # PEM with literal \n — see validator

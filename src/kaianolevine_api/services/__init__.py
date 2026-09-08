@@ -1,1 +1,1 @@
-__all__ = ["reconciliation", "normalization"]
+__all__ = ["reconciliation", "normalization", "discord"]

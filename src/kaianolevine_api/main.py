@@ -27,6 +27,7 @@ from .routers import (
     identity_debug,
     ingest,
     live_plays,
+    notifications,
     resume,
     sets,
     spotify,
@@ -216,6 +217,7 @@ def _build_app() -> FastAPI:
     app.include_router(ingest.router, prefix="/v1", tags=["ingest"])
     app.include_router(live_plays.router, prefix="/v1", tags=["live-plays"])
     app.include_router(webhook.router, prefix="/v1", tags=["webhook"])
+    app.include_router(notifications.router, prefix="/v1", tags=["notifications"])
     app.include_router(contact.router, prefix="/v1", tags=["contact"])
     app.include_router(resume.router, prefix="/v1", tags=["resume"])
     app.include_router(wcs_notes.router, prefix="/v1", tags=["wcs"])

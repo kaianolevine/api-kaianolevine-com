@@ -22,6 +22,13 @@ os.environ.setdefault("CONTACT_FROM_EMAIL", "from@example.com")
 os.environ.setdefault("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
 os.environ.setdefault("CORS_ORIGINS", '["https://kaianolevine.com"]')
 
+# Discord notifications — a dummy webhook and secret so Settings validates.
+# The notification tests mock the Discord call itself with respx.
+os.environ.setdefault(
+    "DISCORD_WEBHOOK_URL", "https://discord.test/api/webhooks/1/token"
+)
+os.environ.setdefault("GITHUB_WEBHOOK_SECRET", "test-github-secret")
+
 from identity.store import (  # noqa: E402
     IdentityBase,
     Issuer,
@@ -162,6 +169,7 @@ _DEV_ROLES = {
         "wcs.sources.write",
         "wcs.transcripts.write",
     ],
+    "notifier": ["notify.messages.send"],
 }
 
 

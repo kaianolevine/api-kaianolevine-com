@@ -83,38 +83,54 @@ class Machine:
 # ---------------------------------------------------------------------------
 
 MACHINES: tuple[Machine, ...] = (
+    # Every machine holds "notifier". Its one scope, notify.messages.send,
+    # posts a message to a Discord channel and does nothing else — it reads
+    # nothing, writes to no table, and grants no one anything. A cog that
+    # cannot say "I failed" is a cog whose failures are found later than they
+    # need to be, and making that conditional on remembering to add a role
+    # here is the kind of friction that ends with the notification never being
+    # added. Least privilege is about what a leaked key can do; this one can
+    # embarrass the channel.
     Machine(
         name="deejay-cog",
-        roles=("catalog-ingest",),
+        roles=("catalog-ingest", "notifier"),
         notes="POST /v1/ingest, /v1/live-plays, /v1/spotify/playlists.",
     ),
     Machine(
         name="transcription-cog",
-        roles=("wcs-writer", "pipeline-writer"),
+        roles=("wcs-writer", "pipeline-writer", "notifier"),
         notes="POST /v1/wcs/sources, /v1/wcs/transcripts, /v1/evaluations.",
     ),
     Machine(
         name="evaluator-cog",
-        roles=("pipeline-writer", "catalog-ingest", "wcs-writer"),
+        roles=("pipeline-writer", "catalog-ingest", "wcs-writer", "notifier"),
         notes="POST /v1/pipeline, /v1/evaluations, /v1/catalog, /v1/wcs/admin/notes.",
     ),
     Machine(
         name="wiki-curator-cog",
-        roles=("corpus-reader", "pipeline-writer"),
+        roles=("corpus-reader", "pipeline-writer", "notifier"),
         notes=(
             "GET /v1/wcs/wiki/export (full corpus, unfiltered) and POST "
             "/v1/evaluations. Reads everything, but reading is not admin: no "
             "wcs.grants.write."
         ),
     ),
-    # watcher-cog polls Drive and calls no API endpoint. It is declared so it
-    # has an identity if that ever changes, and holds no roles because it
-    # needs none — a principal that can do nothing is the correct state for a
-    # caller that asks for nothing.
+    # The identity for notifications that belong to no cog — a shell script, a
+    # local one-off, a GitHub Action. It exists so those do not have to borrow
+    # a cog's key, which would attribute the message to the wrong caller and
+    # hand a scratch script that cog's write scopes.
+    Machine(
+        name="ops-notifier",
+        roles=("notifier",),
+        notes="POST /v1/notify. Ad-hoc Discord messages from scripts and one-offs.",
+    ),
+    # watcher-cog polls Drive and calls no API endpoint but its own
+    # notifications. It was declared with no roles at all until /v1/notify
+    # existed; "notifier" is the first thing it has ever had a use for.
     Machine(
         name="watcher-cog",
-        roles=(),
-        notes="Polls Drive. Makes no API calls today.",
+        roles=("notifier",),
+        notes="Polls Drive. Calls no API endpoint except /v1/notify.",
     ),
 )
 
