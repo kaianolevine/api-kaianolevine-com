@@ -1,3 +1,10 @@
+## [1.52.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.52.1...v1.52.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* modifying notification behavior ([d4a5b77](https://github.com/mini-app-polis/api-kaianolevine-com/commit/d4a5b77699e4905370182a1cebfff51dcf115005))
+
 ## [1.52.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.52.0...v1.52.1) (2026-09-08)
 
 
