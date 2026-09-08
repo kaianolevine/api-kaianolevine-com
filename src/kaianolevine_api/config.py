@@ -61,13 +61,25 @@ class Settings(BaseSettings):
     # Shared secret configured on the GitHub org webhook. Unset means the
     # route rejects every delivery rather than accepting unsigned ones.
     GITHUB_WEBHOOK_SECRET: str | None = None
-    # Which GitHub events may reach Discord. One failing Actions run emits
-    # check_run (per job), check_suite and workflow_run for the same failure;
-    # forwarding all three posts the same news three times. workflow_run is
-    # the run-level summary and status covers non-Actions checks, so the two
-    # of them report every failure exactly once. Widen it here — not in the
-    # route — if a check that reports through check_run only ever appears.
-    GITHUB_NOTIFY_EVENTS: list[str] = ["workflow_run", "status"]
+    # Which GitHub events this service has a policy for. The outer gate only:
+    # what each event actually forwards is decided per-event in
+    # routers.notifications, since GitHub's webhooks filter by event type and
+    # nothing else — "pushes to main" and "new pull requests" are decisions
+    # that can only be made after the payload arrives.
+    #
+    # check_run, check_suite and status are absent on purpose. They duplicate
+    # workflow_run, and Discord renders none of the three.
+    GITHUB_NOTIFY_EVENTS: list[str] = [
+        "push",
+        "pull_request",
+        "issues",
+        "release",
+        "workflow_run",
+    ]
+    # Fallback when a payload carries no repository.default_branch. The branch
+    # normally comes from the payload, so a repo still on "master" is not
+    # silenced by a constant written here.
+    GITHUB_DEFAULT_BRANCH: str = "main"
 
     # Google service account (Drive resume proxy)
     GOOGLE_CLIENT_EMAIL: str | None = None

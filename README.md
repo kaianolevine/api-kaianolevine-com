@@ -26,7 +26,7 @@ Route groups:
 - `/v1/live-plays`, `/v1/live-plays/recent` — VirtualDJ live play history
 - `/v1/ingest` — set ingestion endpoint
 - `/v1/prefect-webhook` — Prefect flow-run webhook
-- `/v1/webhooks/github` — GitHub ci-status webhook; forwards only failing runs to Discord (signature-verified)
+- `/v1/webhooks/github` — GitHub org webhook; filters deliveries by event, action and branch before forwarding to Discord (signature-verified)
 - `/v1/notify` — ad-hoc Discord notifications for cogs and scripts
 - `/v1/contact` — public contact form (CORS + Turnstile gated)
 - `/v1/resume` — resume PDF proxy (Google Drive)
@@ -200,7 +200,7 @@ Deliberately unauthenticated, per API-008 / DOC-011:
 | `POST /v1/contact` | Contact form. CORS + Turnstile gated rather than credential gated. |
 | `GET /v1/resume` | Public resume proxy. |
 | `POST /v1/prefect-webhook` | Prefect flow state callbacks. Reviewed and accepted as unauthenticated. |
-| `POST /v1/webhooks/github` | GitHub ci-status webhook. Gated by `X-Hub-Signature-256` over the raw body — the only credential GitHub can present — not by a bearer token. |
+| `POST /v1/webhooks/github` | GitHub org webhook. Gated by `X-Hub-Signature-256` over the raw body — the only credential GitHub can present — not by a bearer token. |
 | `GET /health`, `GET /version`, `GET /` | Platform endpoints. `/` redirects to `/docs`. |
 
 Client parity is maintained with `mini_app_polis.api.KaianoApiClient`,
@@ -228,12 +228,39 @@ that URL's `/github` suffix so Discord renders its own embed from the
 bytes GitHub signed; everything else goes to the bare URL as an ordinary
 message. `services.discord` is the only module that calls it.
 
-The GitHub route exists to keep the channel quiet: GitHub posts every
-check result and only `failure`, `timed_out` and `cancelled` outcomes
-(`failure`/`error` on the legacy `status` event) are forwarded. Everything
-else answers 200 and posts nothing, including a delivery Discord rejected
-— GitHub disables a webhook that collects enough 5xx, so failures go to
-Sentry instead of onto the wire.
+The GitHub route exists because GitHub's webhooks filter by event type and
+nothing else. "Pushes to main", "new pull requests" and "releases, but not
+edits to old ones" are all decisions that can only be made after the
+payload arrives, so they are made here. One org-level webhook per org
+points at this route; the policy is one function per event type in
+`routers.notifications`:
+
+| Event | Forwarded when |
+|---|---|
+| `push` | ref is the repo's default branch, not a deletion, and the head commit is not a merge or squash commit |
+| `pull_request` | action is `opened` or `closed` |
+| `issues` | action is `opened` |
+| `release` | action is `published` |
+| `workflow_run` | run completed on the default branch — every conclusion, pass or fail |
+
+Two delivery shapes, because Discord's GitHub endpoint is not universal.
+`push`, `pull_request`, `issues` and `release` are forwarded byte-for-byte
+to the webhook's `/github` suffix and Discord draws its own embed.
+`workflow_run` is not: Discord accepts it, answers 204 and posts nothing,
+a silence indistinguishable from success at every layer above it. That
+embed is built in `build_workflow_message` and posted to the bare webhook
+URL instead.
+
+Everything dropped still answers 200 with the reason in the body — a drop
+is a decision, not an error GitHub should retry, and the delivery log
+reads better when the only red entries are real ones. A delivery Discord
+rejected also answers 200: GitHub disables a webhook that collects enough
+5xx, so failures go to Sentry instead of onto the wire.
+
+Two known gaps, both deliberate. Workflow runs off the default branch are
+dropped, so a pull request whose CI fails is silent until it merges. And
+rebase-and-merge cannot be told apart from a direct push, so a rebase
+merge is announced twice — once by the PR closing, once by the push.
 
 `/v1/notify` requires `notify.messages.send`, carried by the `notifier`
 role. Every declared machine holds it: the scope posts a message and does
@@ -242,7 +269,7 @@ later than it should. `ops-notifier` exists for notifications that belong
 to no cog — scripts, one-offs, GitHub Actions — so those never have to
 borrow a cog's key.
 
-`GITHUB_NOTIFY_EVENTS` decides which event shapes count, and defaults to
-`workflow_run` and `status`. One failing Actions run also emits
-`check_run` (per job) and `check_suite` for the same failure, so
-forwarding all four shapes would post the same news three times.
+`GITHUB_NOTIFY_EVENTS` is the outer gate — the event types this service
+has a policy for at all — and defaults to the five in the table.
+`check_run`, `check_suite` and `status` are absent on purpose: they
+duplicate `workflow_run`, and Discord renders none of the three.
