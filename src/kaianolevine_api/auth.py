@@ -383,11 +383,20 @@ def require_scope(scope: str, *, resource_param: str | None = None):
         session: AsyncSession = Depends(get_db_session),
     ) -> Principal:
         subject = await verify_bearer(authorization, settings)
+        # Stamped as soon as it is known, and again once resolution improves
+        # it, so the notification feed can attribute a *denied* request too:
+        # a machine that verified but holds no role is exactly the failure
+        # worth hearing about, and it never reaches the return below.
+        request.state.caller = subject.subject
+        request.state.caller_kind = subject.kind
 
         store = SqlAlchemyPrincipalStore(session, enforcement_point=ENFORCEMENT_POINT)
         sink = SqlAlchemyAuditSink(session)
 
         principal = await store.resolve(subject)
+        if principal is not None:
+            request.state.caller = principal.display_name or principal.subject
+            request.state.caller_kind = principal.kind
         roles = await store.load_roles()
         resource = (
             str(request.path_params.get(resource_param))

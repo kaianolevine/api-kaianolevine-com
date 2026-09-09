@@ -81,6 +81,30 @@ class Settings(BaseSettings):
     # silenced by a constant written here.
     GITHUB_DEFAULT_BRANCH: str = "main"
 
+    # ── The running list ──────────────────────────────────────────────────
+    # Every committed data change and every server-side fault, in the same
+    # Discord channel. See services.activity for what is and is not seen.
+    NOTIFY_DATA_CHANGES: bool = True
+    NOTIFY_FAULTS: bool = True
+    # A 4xx to a machine caller is two things this ecosystem owns disagreeing
+    # about the contract between them, not a guard doing its job. A 4xx to a
+    # human is the guard doing its job and is never reported.
+    NOTIFY_MACHINE_CLIENT_ERRORS: bool = True
+    # Tables whose writes are not news. identity_audit_events is written on
+    # every authorized request, reads included, so leaving it in would make
+    # the feed a copy of the access log.
+    NOTIFY_SUPPRESSED_TABLES: list[str] = ["identity_audit_events"]
+    # Paths outside the feed entirely. Liveness and version are polled by
+    # uptime monitors and their failures are already Healthchecks.io's job;
+    # the two notification routes are excluded so a Discord outage cannot
+    # become a request that reports itself into the same outage.
+    NOTIFY_EXCLUDED_PATHS: list[str] = [
+        "/health",
+        "/version",
+        "/v1/notify",
+        "/v1/webhooks/github",
+    ]
+
     # Token the public repo status dashboard reads GitHub with
     # (GET /v1/github/status). Three names are accepted, in the order
     # `github_dashboard_token` below resolves them, so the route works off

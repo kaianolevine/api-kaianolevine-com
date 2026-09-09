@@ -27,6 +27,7 @@ from identity.store import (
 from identity.store.models import AuditEventRow
 from identity.types import VerifiedSubject
 from sqlalchemy import select
+from starlette.datastructures import State
 
 from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.auth import (
@@ -186,6 +187,8 @@ class _Req:
     def __init__(self, path_params: dict | None = None) -> None:
         self.path_params = path_params or {}
         self.headers: dict[str, str] = {}
+        # The guard stamps the caller here for the notification feed to read.
+        self.state = State()
 
 
 @pytest.mark.asyncio

@@ -18,6 +18,7 @@ from identity.store import Principal, PrincipalRole
 from identity.store.models import AuditEventRow
 from identity.types import VerifiedSubject
 from sqlalchemy import select
+from starlette.datastructures import State
 
 from kaianolevine_api import auth as auth_mod
 from kaianolevine_api import identity_registry as reg
@@ -33,6 +34,10 @@ class _Settings:
 class _Req:
     path_params: dict[str, str] = {}
     headers: dict[str, str] = {}
+
+    def __init__(self) -> None:
+        # The guard stamps the caller here for the notification feed to read.
+        self.state = State()
 
 
 async def _seeded(session):
