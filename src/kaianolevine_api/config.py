@@ -81,6 +81,39 @@ class Settings(BaseSettings):
     # silenced by a constant written here.
     GITHUB_DEFAULT_BRANCH: str = "main"
 
+    # Token the public repo status dashboard reads GitHub with
+    # (GET /v1/github/status). Three names are accepted, in the order
+    # `github_dashboard_token` below resolves them, so the route works off
+    # a token this service already holds rather than requiring a new one.
+    #
+    # GITHUB_DASHBOARD_TOKEN is the dedicated name and the one to set when
+    # the dashboard should read with narrower rights than whatever else is
+    # in the environment: a fine-grained PAT with read access to metadata,
+    # issues, pull requests and checks is the whole requirement. Private
+    # repos need to be in its scope only because they are counted — the
+    # payload never carries their names.
+    #
+    # GH_TOKEN is the fallback, on the assumption that a token already
+    # provisioned for tooling is a personal access token with org read.
+    # Worth knowing what is being reused: a release-automation PAT usually
+    # carries `repo` *write*, and this route is unauthenticated. Nothing
+    # here writes, but a token that could is now reachable from a public
+    # endpoint's code path, which is exactly the blast radius the
+    # dedicated name exists to shrink.
+    #
+    # GITHUB_TOKEN is accepted last and is almost certainly the wrong one.
+    # In CI that name is GitHub Actions' injected token: scoped to the one
+    # repository, expires with the job, and absent from this process at
+    # runtime. It cannot enumerate an organization. It is read here only
+    # so a deployment that sets that name is not silently tokenless.
+    GITHUB_DASHBOARD_TOKEN: str | None = None
+    GH_TOKEN: str | None = None
+    GITHUB_TOKEN: str | None = None
+    # Overrides cache_ttl_seconds in config_data/github_dashboard.yaml, so
+    # the refresh rate can be turned down without a deploy. Unset uses the
+    # file, which is the reviewable value.
+    GITHUB_DASHBOARD_CACHE_TTL_SECS: int | None = None
+
     # Optional shared secret for the Prefect flow-state webhook, sent in
     # X-Prefect-Token. Enforced only when set: the caller is Prefect
     # posting flow states, the worst a stranger can do with the URL is put
@@ -123,6 +156,23 @@ class Settings(BaseSettings):
     WCS_QA_MAX_OUTPUT_TOKENS_DEFAULT: int = 8000
     WCS_QA_MAX_OUTPUT_TOKENS_LIMIT: int = 8192
     WCS_SITE_URL: str = "https://wcs.kaianolevine.com"
+
+    @property
+    def github_dashboard_token(self) -> str | None:
+        """The token the dashboard reads GitHub with, most specific first.
+
+        Resolution order is deliberate: the dedicated name wins so that
+        narrowing the dashboard's rights is always a matter of setting one
+        variable, never of unsetting whatever else happens to be present.
+        """
+        for candidate in (
+            self.GITHUB_DASHBOARD_TOKEN,
+            self.GH_TOKEN,
+            self.GITHUB_TOKEN,
+        ):
+            if candidate and candidate.strip():
+                return candidate.strip()
+        return None
 
     @field_validator("GOOGLE_PRIVATE_KEY", mode="before")
     @classmethod

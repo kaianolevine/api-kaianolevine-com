@@ -24,6 +24,7 @@ from .routers import (
     contact,
     evaluations,
     flags,
+    github_status,
     identity_debug,
     ingest,
     live_plays,
@@ -211,6 +212,7 @@ def _build_app() -> FastAPI:
     app.include_router(catalog.router, prefix="/v1", tags=["catalog"])
     app.include_router(evaluations.router, prefix="/v1", tags=["evaluations"])
     app.include_router(flags.router, prefix="/v1", tags=["flags"])
+    app.include_router(github_status.router, prefix="/v1", tags=["github"])
     app.include_router(identity_debug.router, prefix="/v1", tags=["identity"])
     app.include_router(stats.router, prefix="/v1", tags=["stats"])
     app.include_router(spotify.router, prefix="/v1", tags=["spotify"])

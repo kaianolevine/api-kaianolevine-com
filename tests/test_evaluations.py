@@ -520,7 +520,18 @@ async def test_list_evaluations_csv_filter_trims_whitespace_and_drops_blanks(
 
 
 async def test_list_evaluations_csv_filter_works_on_severity(client) -> None:
-    """CSV semantics apply to severity as well as source."""
+    """CSV semantics apply to severity as well as source.
+
+    All four rows share one ``run_id`` on purpose. ``list_evaluations``
+    returns only the latest run per (repo, source), and ``evaluated_at`` is
+    a ``server_default=func.now()`` — which SQLite renders as
+    ``CURRENT_TIMESTAMP``, resolved to whole seconds. Four rows under four
+    run_ids therefore tie at ``max(evaluated_at)`` and all count as latest,
+    *unless* the four inserts happen to straddle a second boundary, in
+    which case the last run wins and the WARN and ERROR rows vanish from
+    the result. That made this test pass almost always and fail with an
+    empty set otherwise. Run selection is not what is under test here.
+    """
     for sev in ("WARN", "ERROR", "INFO", "SUCCESS"):
         r = await client.post(
             "/v1/evaluations",
@@ -528,7 +539,7 @@ async def test_list_evaluations_csv_filter_works_on_severity(client) -> None:
                 "repo": "csv-sev-repo",
                 "dimension": "pipeline_consistency",
                 "severity": sev,
-                "run_id": f"run-{sev}",
+                "run_id": "run-csv-sev",
                 "finding": f"Finding {sev}.",
                 "source": "flow_inline",
             },
