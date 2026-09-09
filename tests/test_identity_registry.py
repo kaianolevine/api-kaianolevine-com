@@ -15,6 +15,8 @@ from identity.store import Principal, PrincipalRole
 from sqlalchemy import select
 
 from kaianolevine_api import identity_registry as reg
+from kaianolevine_api import main as main_mod
+from kaianolevine_api.services import discord
 from tests.conftest import DEV_ISSUER, seed_identity
 
 
@@ -139,6 +141,56 @@ async def test_unknown_role_is_refused_not_invented(
         "revoked": 0,
     }
     assert await _roles_of(db_session, "oops") == set()
+
+
+@pytest.mark.asyncio
+async def test_reconcile_failure_reports_and_still_boots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The service must come up; the failure must not be silent.
+
+    Swallowing this is fail-closed for grants and wide open for revocations:
+    a decommissioned machine keeps its scopes and the deploy still reports
+    success, so the failure has to leave the process to be found at all.
+    """
+    sent: list[dict] = []
+
+    async def _explode(_session) -> dict[str, int]:
+        raise RuntimeError("connection reset during reconcile")
+
+    async def _capture(*, settings, payload) -> bool:
+        sent.append(payload)
+        return True
+
+    monkeypatch.setattr(reg, "reconcile", _explode)
+    monkeypatch.setattr(discord, "send_message", _capture)
+
+    async with main_mod.lifespan(main_mod.app):
+        pass
+
+    assert len(sent) == 1, "a failed reconcile must reach the channel"
+    embed = sent[0]["embeds"][0]
+    assert "RuntimeError" in embed["description"]
+    assert "revocation" in embed["description"]
+
+
+@pytest.mark.asyncio
+async def test_reconcile_failure_survives_a_dead_discord(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reporting the failure must not become a second way to fail startup."""
+
+    async def _explode(_session) -> dict[str, int]:
+        raise RuntimeError("connection reset during reconcile")
+
+    async def _also_explode(*, settings, payload) -> bool:
+        raise RuntimeError("discord is down too")
+
+    monkeypatch.setattr(reg, "reconcile", _explode)
+    monkeypatch.setattr(discord, "send_message", _also_explode)
+
+    async with main_mod.lifespan(main_mod.app):
+        pass
 
 
 def test_declared_lookup() -> None:

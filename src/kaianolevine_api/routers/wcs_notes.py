@@ -171,13 +171,27 @@ async def create_note(
     if transcript is None:
         raise api_error(404, "transcript_not_found", "Transcript not found")
 
-    # Parse session_date from ISO-8601 string if provided
+    # Parse session_date from ISO-8601 string if provided.
+    #
+    # A rejected date used to become None and the route still answered 200,
+    # so a caller sending "2026-09-09T14:00:00Z" instead of "2026-09-09" had
+    # every note in the batch stored with a NULL date — sorting to the bottom
+    # of both listing queries and showing no date in citations — with nothing
+    # anywhere saying why. The caller sent a value; if it cannot be used, the
+    # caller is the one who can fix it.
     session_date: dt.date | None = None
     if payload.session_date:
         try:
             session_date = dt.date.fromisoformat(payload.session_date)
         except ValueError:
-            session_date = None
+            raise api_error(
+                422,
+                "invalid_session_date",
+                (
+                    f"session_date must be an ISO-8601 date (YYYY-MM-DD); "
+                    f"got {payload.session_date!r}"
+                ),
+            ) from None
 
     row = DbNote(
         owner_id=owner_id,

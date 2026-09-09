@@ -317,13 +317,29 @@ async def test_create_note_null_session_date(client) -> None:
     assert note["session_date"] is None
 
 
-async def test_create_note_malformed_session_date_is_tolerated(client) -> None:
-    """Unparseable session_date is stored as null rather than erroring."""
+async def test_valid_session_date_still_parses(client) -> None:
     transcript = await _create_transcript(client)
-    note = await _create_note(
-        client, transcript["id"], session_date="sometime last winter"
+    note = await _create_note(client, transcript["id"], session_date="2024-01-15")
+    assert note["session_date"] == "2024-01-15"
+
+
+@pytest.mark.parametrize(
+    "bad_date", ["2026-09-09T14:00:00Z", "sometime last winter", "01/15/2024"]
+)
+async def test_invalid_session_date_is_rejected_not_dropped(client, bad_date) -> None:
+    """A date the caller sent and the API cannot read is a request problem.
+
+    It used to become NULL behind a 200, which sorted the note to the bottom
+    of both listing queries and left it dateless in citations, while the cog
+    saw nothing but successful writes.
+    """
+    transcript = await _create_transcript(client)
+    resp = await client.post(
+        "/v1/wcs/notes",
+        json=_note_payload(transcript["id"], session_date=bad_date),
     )
-    assert note["session_date"] is None
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "invalid_session_date"
 
 
 # ── GET /v1/wcs/notes ─────────────────────────────────────────────────────────

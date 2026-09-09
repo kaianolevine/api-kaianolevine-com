@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from contextlib import asynccontextmanager
 from importlib.metadata import version as pkg_version
 from typing import Any
@@ -44,9 +45,10 @@ from .routers import (
 )
 from .schemas import ErrorDetail, ErrorEnvelope
 
-# Imported for its side effect as well as its middleware: importing it is
-# what registers the SQLAlchemy listeners that tally data changes.
-from .services import activity
+# activity is imported for its side effect as well as its middleware:
+# importing it is what registers the SQLAlchemy listeners that tally
+# data changes.
+from .services import activity, discord
 
 logger = get_logger()
 
@@ -85,9 +87,11 @@ async def _reconcile_identity_registry() -> None:
     """Apply the declared machine principals (identity_registry.MACHINES).
 
     Runs on every boot so a deploy is what applies a declaration change.
-    Failures are logged and swallowed: reconciliation must never take the
-    service down, and failing to grant is already fail-closed — an ungranted
-    principal is denied by the ordinary authorization path, not let through.
+    Failures never propagate: reconciliation must not take the service down,
+    and failing to grant is already fail-closed — an ungranted principal is
+    denied by the ordinary authorization path, not let through. Failing to
+    revoke is not, so a failure is reported to Sentry and Discord rather than
+    only logged.
     """
     try:
         from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -108,11 +112,36 @@ async def _reconcile_identity_registry() -> None:
                 )
             )
     except Exception as exc:  # noqa: BLE001 - see docstring
-        logger.warning(
+        logger.error(
             with_log_prefix(
-                LOG_WARNING, f"identity registry reconciliation failed: {exc!r}"
+                LOG_FAILURE, f"identity registry reconciliation failed: {exc!r}"
             )
         )
+        # The docstring's fail-closed argument holds for grants and not for
+        # revocations: reconcile also deletes stale role rows, so a failure
+        # here leaves a decommissioned machine holding its scopes while the
+        # deploy reports success. Sentry is initialised with the FastAPI
+        # integration only, so a warning-level log here was a breadcrumb
+        # attached to nothing.
+        sentry_sdk.capture_exception(exc)
+        with contextlib.suppress(Exception):
+            await discord.send_message(
+                settings=get_settings(),
+                payload={
+                    "embeds": [
+                        {
+                            "title": "identity reconcile failed",
+                            "color": 0xDA3633,
+                            "description": (
+                                "Declared machine principals were not applied at "
+                                f"boot: `{type(exc).__name__}: {exc}`. Any role "
+                                "revocation in this deploy did not take effect."
+                            ),
+                            "footer": {"text": get_settings().ENVIRONMENT},
+                        }
+                    ]
+                },
+            )
 
 
 def _build_app() -> FastAPI:
