@@ -402,7 +402,7 @@ def reset_cache() -> None:
 
 
 async def _refresh(settings: Settings, cfg: dict[str, Any], ttl: int) -> GithubStatus:
-    token = settings.GITHUB_DASHBOARD_TOKEN or ""
+    token = settings.github_dashboard_token or ""
     per_org: dict[str, list[dict[str, Any]]] = {}
     timeout = httpx.Timeout(settings.HTTP_CLIENT_TIMEOUT_SECS or 10.0)
 

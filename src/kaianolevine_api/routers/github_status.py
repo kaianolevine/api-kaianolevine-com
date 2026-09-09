@@ -9,7 +9,7 @@ what the committed config permits on a public page. Putting a credential in
 front of it would move the token from Railway into a static bundle, which is
 the problem the route exists to avoid.
 
-**Two distinct failures, deliberately.** A missing token is 501
+**Two distinct failures, deliberately.** No usable token is 501
 ``not_configured`` — the deployment is incomplete, and an empty board would
 misread as a fleet with nothing in it. GitHub being unreachable with no
 snapshot in hand is 502 ``upstream_error``. The site hides the panel on
@@ -47,7 +47,7 @@ async def github_status(
     settings: Settings = Depends(get_settings),
 ) -> Envelope[GithubStatus]:
     """Return the cached repo status board in the standard envelope."""
-    if not settings.GITHUB_DASHBOARD_TOKEN:
+    if not settings.github_dashboard_token:
         raise api_error(
             501,
             "not_configured",

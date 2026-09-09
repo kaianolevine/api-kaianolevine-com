@@ -71,6 +71,8 @@ def dashboard(monkeypatch):
     """Configured token, one org, aggregate disclosure, empty cache."""
     settings = get_settings()
     monkeypatch.setattr(settings, "GITHUB_DASHBOARD_TOKEN", "test-token", raising=False)
+    monkeypatch.setattr(settings, "GH_TOKEN", None, raising=False)
+    monkeypatch.setattr(settings, "GITHUB_TOKEN", None, raising=False)
     monkeypatch.setattr(settings, "GITHUB_DASHBOARD_CACHE_TTL_SECS", 300, raising=False)
 
     def fake_config():
@@ -90,12 +92,49 @@ def dashboard(monkeypatch):
     gh.reset_cache()
 
 
-async def test_missing_token_is_not_configured(client, monkeypatch) -> None:
+async def test_no_token_anywhere_is_not_configured(client, monkeypatch) -> None:
     settings = get_settings()
-    monkeypatch.setattr(settings, "GITHUB_DASHBOARD_TOKEN", None, raising=False)
+    for name in ("GITHUB_DASHBOARD_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
+        monkeypatch.setattr(settings, name, None, raising=False)
     resp = await client.get("/v1/github/status")
     assert resp.status_code == 501
     assert resp.json()["error"]["code"] == "not_configured"
+
+
+def test_token_resolution_prefers_the_dedicated_name(monkeypatch) -> None:
+    """The dedicated name wins, so narrowing the dashboard's rights is one
+    variable to set — never something else to unset."""
+    settings = get_settings()
+
+    monkeypatch.setattr(settings, "GITHUB_DASHBOARD_TOKEN", "dedicated", raising=False)
+    monkeypatch.setattr(settings, "GH_TOKEN", "gh", raising=False)
+    monkeypatch.setattr(settings, "GITHUB_TOKEN", "actions", raising=False)
+    assert settings.github_dashboard_token == "dedicated"
+
+    monkeypatch.setattr(settings, "GITHUB_DASHBOARD_TOKEN", None, raising=False)
+    assert settings.github_dashboard_token == "gh"
+
+    monkeypatch.setattr(settings, "GH_TOKEN", "   ", raising=False)
+    assert settings.github_dashboard_token == "actions"
+
+    monkeypatch.setattr(settings, "GITHUB_TOKEN", "", raising=False)
+    assert settings.github_dashboard_token is None
+
+
+@respx.mock
+async def test_falls_back_to_gh_token(client, dashboard, monkeypatch) -> None:
+    """No dedicated token set — the request still goes out, bearing GH_TOKEN."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "GITHUB_DASHBOARD_TOKEN", None, raising=False)
+    monkeypatch.setattr(settings, "GH_TOKEN", "gh-token", raising=False)
+
+    route = respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(200, json=_page([_repo("only")]))
+    )
+    resp = await client.get("/v1/github/status")
+
+    assert resp.status_code == 200
+    assert route.calls[0].request.headers["Authorization"] == "Bearer gh-token"
 
 
 @respx.mock
