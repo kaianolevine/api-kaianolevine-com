@@ -1752,7 +1752,12 @@ class GithubRepoStatus(BaseModel):
         None, description="Default branch name; null if the repo is empty."
     )
     build: GithubBuildState = Field(
-        ..., description="Check rollup on the default branch's head commit."
+        ...,
+        description=(
+            "Check rollup from the most recent checked commit on the default "
+            "branch. Not necessarily the head: a repo whose releases land as "
+            "`[skip ci]` commits never builds its own head commit."
+        ),
     )
     open_pull_requests: int = Field(0, ge=0, description="Open PR count.")
     open_issues: int = Field(

@@ -75,6 +75,18 @@ PAGE_SIZE = 50
 #: not advance. Twenty pages is a thousand repos — far past this fleet.
 MAX_PAGES = 20
 
+#: How far back along the default branch to look for a commit that was
+#: actually checked.
+#:
+#: Reading only the head commit is the obvious implementation and it is
+#: wrong here. semantic-release lands `chore(release): x.y.z [skip ci]` on
+#: main after every release, and `[skip ci]` means Actions never runs on it
+#: — so the head commit of a released repo has no checks *by construction*,
+#: and a board that reads only the head reports "no checks" for a repo whose
+#: CI is green. Ten commits covers a release commit plus a normal run of
+#: merges and dependabot bumps without another request.
+HISTORY_DEPTH = 10
+
 #: GitHub's ``StatusState`` mapped onto the vocabulary the page renders.
 #: ``EXPECTED`` means a check has been declared but has not reported, which
 #: is a pending build from a reader's point of view. A null rollup means the
@@ -117,8 +129,13 @@ query($login: String!, $cursor: String, $pageSize: Int!) {
           name
           target {
             ... on Commit {
-              committedDate
-              statusCheckRollup { state }
+              history(first: 10) {
+                nodes {
+                  oid
+                  committedDate
+                  statusCheckRollup { state }
+                }
+              }
             }
           }
         }
@@ -354,11 +371,30 @@ def _keep(node: dict[str, Any], login: str, cfg: dict[str, Any]) -> bool:
 
 
 def _build_state(node: dict[str, Any]) -> str:
-    """Map the default branch head's check rollup onto our vocabulary."""
+    """Build state from the most recent *checked* commit on the default branch.
+
+    Not the head commit. semantic-release lands `chore(release): x.y.z
+    [skip ci]` on main after every release, and `[skip ci]` means Actions
+    never runs on it — so the head of a released repo has no checks by
+    construction, and reading only the head reports "no checks" for a repo
+    whose CI is green. Walking back finds the commit that was actually
+    built.
+
+    A repo with nothing checked anywhere in the window reports "none",
+    which is the honest answer for "nothing here has been verified".
+    """
     ref = node.get("defaultBranchRef") or {}
     target = ref.get("target") or {}
-    rollup = target.get("statusCheckRollup") or {}
-    return _ROLLUP_STATES.get(rollup.get("state"), "none")
+    commits = (target.get("history") or {}).get("nodes") or []
+
+    for commit in commits:
+        if not commit:
+            continue
+        state = (commit.get("statusCheckRollup") or {}).get("state")
+        if state:
+            return _ROLLUP_STATES.get(state, "none")
+
+    return "none"
 
 
 def _parse_ts(value: Any) -> dt.datetime | None:
@@ -374,6 +410,7 @@ def _parse_ts(value: Any) -> dt.datetime | None:
 def _repo_status(node: dict[str, Any], login: str) -> GithubRepoStatus:
     ref = node.get("defaultBranchRef") or {}
     language = node.get("primaryLanguage") or {}
+
     return GithubRepoStatus(
         org=login,
         name=str(node.get("name") or ""),

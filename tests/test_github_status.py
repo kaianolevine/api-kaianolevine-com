@@ -27,6 +27,7 @@ def _repo(
     archived: bool = False,
     fork: bool = False,
     rollup: str | None = "SUCCESS",
+    checked_distance: int = 0,
     prs: int = 0,
     issues: int = 0,
     branches: int = 1,
@@ -44,8 +45,20 @@ def _repo(
         "defaultBranchRef": {
             "name": "main",
             "target": {
-                "committedDate": pushed,
-                "statusCheckRollup": None if rollup is None else {"state": rollup},
+                "history": {
+                    "nodes": [
+                        {
+                            "oid": f"{name}-{i}",
+                            "committedDate": pushed,
+                            "statusCheckRollup": (
+                                {"state": rollup}
+                                if rollup is not None and i == checked_distance
+                                else None
+                            ),
+                        }
+                        for i in range(max(checked_distance + 1, 1))
+                    ]
+                }
             },
         },
         "pullRequests": {"totalCount": prs},
@@ -559,3 +572,38 @@ async def test_aggregate_still_withholds_the_private_flag_entirely(
     data = (await client.get("/v1/github/status")).json()["data"]
     assert [r["private"] for r in data["repositories"]] == [False]
     assert "client-work" not in (await client.get("/v1/github/status")).text
+
+
+@respx.mock
+async def test_skip_ci_release_commit_does_not_read_as_unchecked(
+    client, dashboard
+) -> None:
+    """The bug this fixes: semantic-release lands `[skip ci]` on main, so the
+    head commit is never built and reading only the head reported "no checks"
+    for a repo whose CI is green."""
+    respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(
+            200,
+            json=_page(
+                [
+                    # Head is the release commit; the build ran one back.
+                    _repo("common-python-utils", rollup="SUCCESS", checked_distance=1),
+                    # Head itself was checked.
+                    _repo("api-kaianolevine-com", rollup="FAILURE", checked_distance=0),
+                    # Nothing checked anywhere in the window — genuinely unverified.
+                    _repo("scratch", rollup=None),
+                ]
+            ),
+        )
+    )
+
+    data = (await client.get("/v1/github/status")).json()["data"]
+    rows = {r["name"]: r for r in data["repositories"]}
+
+    assert rows["common-python-utils"]["build"] == "success"
+    assert rows["api-kaianolevine-com"]["build"] == "failure"
+    assert rows["scratch"]["build"] == "none"
+
+    # The counts follow the corrected state, not the head commit's emptiness.
+    assert data["totals"]["builds"]["success"] == 1
+    assert data["totals"]["builds"]["none"] == 1
