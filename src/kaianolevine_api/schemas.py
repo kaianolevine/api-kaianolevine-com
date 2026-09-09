@@ -1779,6 +1779,28 @@ class GithubOrgSummary(BaseModel):
     )
 
 
+GithubOrgFailureReason = Literal[
+    "unauthorized",
+    "not_found_or_no_access",
+    "rate_limited",
+    "unreachable",
+]
+
+
+class GithubOrgError(BaseModel):
+    """An organization that could not be read on this refresh.
+
+    The reason is a coarse category on purpose. GitHub's own error text can
+    echo query internals and logins the reader has no business seeing, and
+    this route is public — the detail belongs in the logs, not here.
+    """
+
+    login: str = Field(..., description="Organization login that could not be read.")
+    reason: GithubOrgFailureReason = Field(
+        ..., description="Why it could not be read, at a public-safe granularity."
+    )
+
+
 class GithubTotals(BaseModel):
     """Headline numbers spanning listed and aggregated repositories alike."""
 
@@ -1813,5 +1835,12 @@ class GithubStatus(BaseModel):
     repositories: list[GithubRepoStatus] = Field(
         default_factory=list,
         description="Listed repositories, worst build state first.",
+    )
+    unavailable_orgs: list[GithubOrgError] = Field(
+        default_factory=list,
+        description=(
+            "Organizations skipped on this refresh. A non-empty list means the "
+            "totals below cover less than the configured fleet."
+        ),
     )
     totals: GithubTotals = Field(..., description="Fleet-wide headline numbers.")

@@ -56,8 +56,15 @@ async def github_status(
 
     try:
         payload = await get_status(settings)
-    except GithubUnavailable:
-        raise api_error(502, "upstream_error", "GitHub status is unavailable") from None
+    except GithubUnavailable as exc:
+        # The reasons are the same public-safe categories the 200 path puts
+        # in `unavailable_orgs`, so a total failure is no more revealing than
+        # a partial one — and a single-org deployment can say what is wrong
+        # instead of only that something is.
+        details = {"orgs": [org.model_dump() for org in exc.orgs]} if exc.orgs else None
+        raise api_error(
+            502, "upstream_error", "GitHub status is unavailable", details
+        ) from None
 
     max_age = STALE_MAX_AGE_SECS if payload.stale else payload.cache_ttl_seconds
     response.headers["Cache-Control"] = f"public, max-age={max_age}"

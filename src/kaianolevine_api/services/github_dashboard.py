@@ -50,6 +50,7 @@ from mini_app_polis.logger import (
 from ..config import Settings
 from ..schemas import (
     GithubBuildCounts,
+    GithubOrgError,
     GithubOrgSummary,
     GithubPrivateSummary,
     GithubRepoStatus,
@@ -131,7 +132,37 @@ query($login: String!, $cursor: String, $pageSize: Int!) {
 
 
 class GithubUnavailable(RuntimeError):
-    """GitHub could not be read and no previous snapshot exists."""
+    """GitHub could not be read at all and no previous snapshot exists.
+
+    Carries the per-org reasons so the 502 can say *why*. Without this the
+    diagnostic only works when at least one org succeeds — and a fleet
+    configured with a single org can never be in that state, so the one
+    deployment most likely to be misconfigured would be the one that told
+    you the least.
+    """
+
+    def __init__(self, message: str, orgs: list[GithubOrgError] | None = None) -> None:
+        super().__init__(message)
+        self.orgs = list(orgs or [])
+
+
+class OrgUnavailable(RuntimeError):
+    """One organization could not be read. Carries a public-safe reason.
+
+    Separate from GithubUnavailable because the two are different events. A
+    fleet spans several orgs; one of them being unreadable — a login typo, a
+    fine-grained token never authorized for that org, a private org the
+    token is not a member of — should cost that org's rows and nothing
+    else. Failing the whole board on it, which is what the first version of
+    this module did, turns a one-line config mistake into a blank page and
+    gives the reader no way to tell the two apart.
+    """
+
+    def __init__(self, login: str, reason: str, detail: str) -> None:
+        super().__init__(f"{login}: {reason} ({detail})")
+        self.login = login
+        self.reason = reason
+        self.detail = detail
 
 
 # ── Configuration ────────────────────────────────────────────────────────
@@ -173,6 +204,40 @@ def cache_ttl(settings: Settings) -> int:
 # ── Fetch ────────────────────────────────────────────────────────────────
 
 
+def _reason_for_status(response: httpx.Response) -> str:
+    """Map an HTTP failure onto a public-safe reason."""
+    code = response.status_code
+    if code in (401, 403):
+        # 403 is GitHub's secondary rate limit as well as its forbidden, and
+        # the two are told apart by a header rather than the status.
+        if "rate limit" in (response.text or "").lower():
+            return "rate_limited"
+        return "unauthorized"
+    if code == 404:
+        return "not_found_or_no_access"
+    if code == 429:
+        return "rate_limited"
+    return "unreachable"
+
+
+def _reason_for_graphql(messages: str) -> str:
+    """Map GraphQL error text onto a public-safe reason."""
+    lowered = messages.lower()
+    if "rate limit" in lowered:
+        return "rate_limited"
+    if "bad credentials" in lowered or "credentials" in lowered:
+        return "unauthorized"
+    # A fine-grained token missing one permission answers with a 200 and
+    # "Resource not accessible by personal access token" against the field
+    # it could not read — most often statusCheckRollup. That is a rights
+    # problem, not an outage, and saying so is what makes it fixable.
+    if "not accessible" in lowered:
+        return "unauthorized"
+    if "could not resolve" in lowered or "not resolve to" in lowered:
+        return "not_found_or_no_access"
+    return "unreachable"
+
+
 async def _query_org(
     client: httpx.AsyncClient, login: str, token: str
 ) -> list[dict[str, Any]]:
@@ -181,34 +246,49 @@ async def _query_org(
     cursor: str | None = None
 
     for _ in range(MAX_PAGES):
-        resp = await client.post(
-            GITHUB_GRAPHQL_URL,
-            json={
-                "query": ORG_QUERY,
-                "variables": {
-                    "login": login,
-                    "cursor": cursor,
-                    "pageSize": PAGE_SIZE,
+        try:
+            resp = await client.post(
+                GITHUB_GRAPHQL_URL,
+                json={
+                    "query": ORG_QUERY,
+                    "variables": {
+                        "login": login,
+                        "cursor": cursor,
+                        "pageSize": PAGE_SIZE,
+                    },
                 },
-            },
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/json",
-                "User-Agent": "kaianolevine-api-github-dashboard",
-            },
-        )
-        resp.raise_for_status()
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                    "User-Agent": "kaianolevine-api-github-dashboard",
+                },
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise OrgUnavailable(
+                login,
+                _reason_for_status(exc.response),
+                f"HTTP {exc.response.status_code}",
+            ) from exc
+        except httpx.RequestError as exc:
+            raise OrgUnavailable(login, "unreachable", type(exc).__name__) from exc
+
         body = resp.json()
 
         # GraphQL reports partial failures in a 200. Treat them as failures
         # for this org rather than silently publishing a short board.
         if body.get("errors"):
             messages = "; ".join(str(e.get("message", "")) for e in body["errors"][:3])
-            raise RuntimeError(f"GitHub GraphQL errors for {login}: {messages}")
+            raise OrgUnavailable(login, _reason_for_graphql(messages), messages)
 
         org = (body.get("data") or {}).get("organization")
         if not org:
-            raise RuntimeError(f"GitHub returned no organization for {login}")
+            # GitHub answers a login it cannot resolve *or* cannot show you
+            # the same way: a null organization. The two are indistinguishable
+            # from here, which is why the reason covers both.
+            raise OrgUnavailable(
+                login, "not_found_or_no_access", "null organization in response"
+            )
 
         page = org.get("repositories") or {}
         nodes.extend(n for n in (page.get("nodes") or []) if n)
@@ -303,6 +383,7 @@ def shape(
     *,
     fetched_at: dt.datetime,
     ttl: int,
+    unavailable: list[GithubOrgError] | None = None,
 ) -> GithubStatus:
     """Turn raw GitHub nodes into the payload the public page receives.
 
@@ -376,6 +457,7 @@ def shape(
         private_disclosure=disclosure,
         orgs=orgs,
         repositories=listed,
+        unavailable_orgs=list(unavailable or []),
         totals=GithubTotals(
             repositories=total_repos,
             open_pull_requests=total_prs,
@@ -406,11 +488,39 @@ async def _refresh(settings: Settings, cfg: dict[str, Any], ttl: int) -> GithubS
     per_org: dict[str, list[dict[str, Any]]] = {}
     timeout = httpx.Timeout(settings.HTTP_CLIENT_TIMEOUT_SECS or 10.0)
 
+    unavailable: list[GithubOrgError] = []
+
     async with httpx.AsyncClient(timeout=timeout) as client:
         for login in cfg["orgs"]:
-            per_org[login] = await _query_org(client, login, token)
+            try:
+                per_org[login] = await _query_org(client, login, token)
+            except OrgUnavailable as exc:
+                # One org's problem costs that org and nothing else. The
+                # detail goes to the logs; the payload carries the category.
+                logger.warning(
+                    with_log_prefix(
+                        LOG_WARNING,
+                        f"github dashboard: skipping org {exc.login} — {exc.reason}: {exc.detail}",
+                    )
+                )
+                unavailable.append(GithubOrgError(login=exc.login, reason=exc.reason))
 
-    return shape(per_org, cfg, fetched_at=dt.datetime.now(dt.UTC), ttl=ttl)
+    # Every configured org failing is a different event from one failing: it
+    # is almost always the token rather than the config, and there is nothing
+    # truthful to render. Let it fall through to the stale snapshot, or to 502.
+    if cfg["orgs"] and not per_org:
+        reasons = ", ".join(sorted({e.reason for e in unavailable}))
+        raise GithubUnavailable(
+            f"no organization could be read ({reasons})", unavailable
+        )
+
+    return shape(
+        per_org,
+        cfg,
+        fetched_at=dt.datetime.now(dt.UTC),
+        ttl=ttl,
+        unavailable=unavailable,
+    )
 
 
 async def get_status(settings: Settings) -> GithubStatus:
@@ -449,6 +559,10 @@ async def get_status(settings: Settings) -> GithubStatus:
                     LOG_FAILURE, f"GitHub refresh failed with no snapshot: {exc}"
                 )
             )
+            # Already the right exception, and it knows which orgs failed.
+            # Re-wrapping it would throw that away.
+            if isinstance(exc, GithubUnavailable):
+                raise
             raise GithubUnavailable(str(exc)) from exc
 
         _snapshot["payload"] = payload
