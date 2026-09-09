@@ -1,3 +1,10 @@
+## [1.55.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.55.0...v1.55.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* **activity:** report the exception type, never its message ([2088057](https://github.com/mini-app-polis/api-kaianolevine-com/commit/2088057c5bdda9f91e2c60f7e228ca1535c9a46d))
+
 # [1.55.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.4...v1.55.0) (2026-09-09)
 
 
