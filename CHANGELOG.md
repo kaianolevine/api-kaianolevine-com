@@ -1,3 +1,10 @@
+## [1.54.4](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.3...v1.54.4) (2026-09-09)
+
+
+### Bug Fixes
+
+* checks build history for status ([e1545ed](https://github.com/mini-app-polis/api-kaianolevine-com/commit/e1545edf3a835c4507a3beeb18ef4ee89ef5e9e3))
+
 ## [1.54.3](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.2...v1.54.3) (2026-09-09)
 
 
