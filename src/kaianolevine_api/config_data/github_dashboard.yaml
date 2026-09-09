@@ -1,0 +1,39 @@
+# Which repositories the public status dashboard covers, and how they are
+# shown. Committed rather than environment-held because "which repos are
+# mine" is a reviewable decision with a diff, not a deployment knob — and
+# because the private-repo disclosure setting below decides what a stranger
+# can read off software.kaianolevine.com. That belongs in review.
+#
+# Served by GET /v1/github/status. Changing this file needs a deploy.
+
+version: 1
+
+# How long one fetched snapshot is served before GitHub is called again.
+# The dashboard is a portfolio panel, not an oncall board: five minutes
+# keeps the GraphQL cost near zero and the page honest enough.
+cache_ttl_seconds: 300
+
+# Organizations to enumerate. One GraphQL query per org per refresh.
+orgs:
+  - mini-app-polis
+
+# Allowlist, "org/name". When non-empty, ONLY these repos are considered
+# and every other filter below still applies to them. Normally empty.
+include: []
+
+# Repositories omitted entirely, "org/name". These are not listed, not
+# counted, and not aggregated.
+exclude: []
+
+exclude_archived: true
+exclude_forks: true
+
+# How private repositories are represented on a public page.
+#
+#   aggregate — counted into a per-org summary; never named, no titles,
+#               no URLs. The page can say "4 private repos, 1 failing"
+#               without saying which. (default)
+#   hidden    — dropped before shaping. Not counted anywhere.
+#   full      — listed exactly like public repos, names and all. Only
+#               sensible behind auth; this route has none.
+private_repos: aggregate

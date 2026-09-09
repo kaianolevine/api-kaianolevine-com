@@ -1702,3 +1702,116 @@ class NotifyRequest(BaseModel):
         if self.username:
             payload["username"] = self.username
         return payload
+
+
+# ── GitHub repo status dashboard ──────────────────────────────────────────────
+#
+# Shapes for GET /v1/github/status. The route is public, so these models are
+# also the disclosure boundary: there is no field here that could carry a
+# private repository's name, URL, description, branch, or any issue or PR
+# title. Private repos reach the page only through GithubPrivateSummary,
+# which holds nothing but counts.
+
+GithubBuildState = Literal["success", "failure", "error", "pending", "none"]
+
+GithubPrivateDisclosure = Literal["aggregate", "hidden", "full"]
+
+
+class GithubBuildCounts(BaseModel):
+    """How many repos sit in each build state."""
+
+    success: int = Field(0, ge=0, description="Default branch checks all passing.")
+    failure: int = Field(0, ge=0, description="At least one required check failing.")
+    error: int = Field(0, ge=0, description="A check errored rather than failed.")
+    pending: int = Field(
+        0, ge=0, description="Checks queued, running, or not yet reported."
+    )
+    none: int = Field(
+        0, ge=0, description="Head commit has no checks at all — not a pass."
+    )
+
+
+class GithubRepoStatus(BaseModel):
+    """One listed repository. Only ever a public repo unless the committed
+    config sets `private_repos: full`."""
+
+    org: str = Field(..., description="Owning organization login.")
+    name: str = Field(..., description="Repository name, without the org prefix.")
+    url: str = Field(..., description="Canonical GitHub URL.")
+    description: str | None = Field(None, description="Repository description.")
+    language: str | None = Field(None, description="Primary language, per GitHub.")
+    default_branch: str | None = Field(
+        None, description="Default branch name; null if the repo is empty."
+    )
+    build: GithubBuildState = Field(
+        ..., description="Check rollup on the default branch's head commit."
+    )
+    open_pull_requests: int = Field(0, ge=0, description="Open PR count.")
+    open_issues: int = Field(
+        0, ge=0, description="Open issue count, excluding pull requests."
+    )
+    pushed_at: dt.datetime | None = Field(
+        None, description="Last push to any branch, per GitHub."
+    )
+
+
+class GithubPrivateSummary(BaseModel):
+    """The whole of what a private repository discloses on a public page."""
+
+    repo_count: int = Field(0, ge=0, description="How many private repos were counted.")
+    builds: GithubBuildCounts = Field(
+        ..., description="Build states across those repos."
+    )
+    open_pull_requests: int = Field(0, ge=0, description="Open PRs across those repos.")
+    open_issues: int = Field(0, ge=0, description="Open issues across those repos.")
+
+
+class GithubOrgSummary(BaseModel):
+    """Per-organization roll-up shown above that org's repositories."""
+
+    login: str = Field(..., description="Organization login.")
+    listed_repo_count: int = Field(
+        0, ge=0, description="Repositories listed individually for this org."
+    )
+    private: GithubPrivateSummary | None = Field(
+        None,
+        description="Counts for this org's private repos; null when there are none or they are hidden.",
+    )
+
+
+class GithubTotals(BaseModel):
+    """Headline numbers spanning listed and aggregated repositories alike."""
+
+    repositories: int = Field(0, ge=0, description="Every repo counted, listed or not.")
+    open_pull_requests: int = Field(0, ge=0, description="Open PRs across the fleet.")
+    open_issues: int = Field(0, ge=0, description="Open issues across the fleet.")
+    builds: GithubBuildCounts = Field(..., description="Build states across the fleet.")
+
+
+class GithubStatus(BaseModel):
+    """The dashboard payload."""
+
+    fetched_at: dt.datetime = Field(
+        ...,
+        description="When this snapshot was read from GitHub — not when it was served.",
+    )
+    stale: bool = Field(
+        False,
+        description="True when GitHub could not be reached and a previous snapshot is being served.",
+    )
+    cache_ttl_seconds: int = Field(
+        ...,
+        ge=0,
+        description="How long a snapshot is served before GitHub is called again.",
+    )
+    private_disclosure: GithubPrivateDisclosure = Field(
+        ..., description="How private repos are represented in this payload."
+    )
+    orgs: list[GithubOrgSummary] = Field(
+        default_factory=list, description="Per-organization summaries."
+    )
+    repositories: list[GithubRepoStatus] = Field(
+        default_factory=list,
+        description="Listed repositories, worst build state first.",
+    )
+    totals: GithubTotals = Field(..., description="Fleet-wide headline numbers.")

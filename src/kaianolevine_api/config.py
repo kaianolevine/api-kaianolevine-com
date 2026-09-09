@@ -81,6 +81,18 @@ class Settings(BaseSettings):
     # silenced by a constant written here.
     GITHUB_DEFAULT_BRANCH: str = "main"
 
+    # Read-only token for the public repo status dashboard
+    # (GET /v1/github/status). A fine-grained PAT with read access to
+    # metadata, issues, pull requests and checks is enough; it needs the
+    # private repos in scope only because they are counted, never named.
+    # Unset means the route answers 501 rather than serving an empty
+    # board that reads as a fleet with nothing in it.
+    GITHUB_DASHBOARD_TOKEN: str | None = None
+    # Overrides cache_ttl_seconds in config_data/github_dashboard.yaml, so
+    # the refresh rate can be turned down without a deploy. Unset uses the
+    # file, which is the reviewable value.
+    GITHUB_DASHBOARD_CACHE_TTL_SECS: int | None = None
+
     # Optional shared secret for the Prefect flow-state webhook, sent in
     # X-Prefect-Token. Enforced only when set: the caller is Prefect
     # posting flow states, the worst a stranger can do with the URL is put
