@@ -29,6 +29,7 @@ def _repo(
     rollup: str | None = "SUCCESS",
     prs: int = 0,
     issues: int = 0,
+    branches: int = 1,
     pushed: str = "2026-09-01T00:00:00Z",
 ) -> dict:
     return {
@@ -49,6 +50,7 @@ def _repo(
         },
         "pullRequests": {"totalCount": prs},
         "issues": {"totalCount": issues},
+        "refs": {"totalCount": branches},
     }
 
 
@@ -429,3 +431,82 @@ async def test_unavailable_reason_never_leaks_github_error_text(
     assert resp.json()["data"]["unavailable_orgs"][0]["reason"] == (
         "not_found_or_no_access"
     )
+
+
+@respx.mock
+async def test_graphql_permission_errors_are_summarized_by_field(dashboard) -> None:
+    """The log must name the fields, because the fields name the permission.
+
+    A fine-grained token missing Issues / Pull requests / Checks answers 200
+    with one error per offending field per repo — many identical messages
+    that never say which permission is short. The path's last segment does.
+    """
+    errors = [
+        {
+            "path": ["organization", "repositories", "nodes", 0, "issues"],
+            "message": "Resource not accessible by personal access token",
+        },
+        {
+            "path": ["organization", "repositories", "nodes", 0, "pullRequests"],
+            "message": "Resource not accessible by personal access token",
+        },
+        {
+            "path": ["organization", "repositories", "nodes", 1, "issues"],
+            "message": "Resource not accessible by personal access token",
+        },
+        {
+            "path": [
+                "organization",
+                "repositories",
+                "nodes",
+                1,
+                "defaultBranchRef",
+                "target",
+                "statusCheckRollup",
+            ],
+            "message": "Resource not accessible by personal access token",
+        },
+    ]
+    respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(
+            200, json={"data": {"organization": None}, "errors": errors}
+        )
+    )
+
+    with pytest.raises(gh.OrgUnavailable) as caught:
+        async with httpx.AsyncClient() as client:
+            await gh._query_org(client, "test-org", "token")
+
+    exc = caught.value
+    assert exc.reason == "unauthorized"
+    # Deduplicated across repos, so four errors read as three fields.
+    assert "issues, pullRequests, statusCheckRollup" in exc.detail
+    assert "4 error(s)" in exc.detail
+
+
+@respx.mock
+async def test_branch_counts_are_reported_per_repo_and_in_totals(
+    client, dashboard
+) -> None:
+    """Branch count rides the existing query — no extra request per repo."""
+    route = respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(
+            200,
+            json=_page(
+                [
+                    _repo("busy", branches=14),
+                    _repo("tidy", branches=1),
+                    _repo("closed-work", private=True, branches=6),
+                ]
+            ),
+        )
+    )
+
+    data = (await client.get("/v1/github/status")).json()["data"]
+
+    assert route.call_count == 1
+    by_name = {r["name"]: r["branches"] for r in data["repositories"]}
+    assert by_name == {"busy": 14, "tidy": 1}
+    # Private branches are counted, like every other private number.
+    assert data["orgs"][0]["private"]["branches"] == 6
+    assert data["totals"]["branches"] == 21
