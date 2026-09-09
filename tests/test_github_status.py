@@ -309,3 +309,123 @@ def test_committed_config_is_valid_and_names_at_least_one_org() -> None:
     cfg = gh.load_config()
     assert cfg["orgs"], "config_data/github_dashboard.yaml lists no orgs"
     assert cfg["private_repos"] in {"aggregate", "hidden", "full"}
+
+
+# ── Degradation when one org of several cannot be read ────────────────────
+#
+# The failure this covers actually happened: a second org was added to the
+# committed config, the deployed token could not see it, and the board went
+# to 502 — taking the readable org down with it. One org's problem must cost
+# that org and nothing else.
+
+
+def _two_orgs(monkeypatch):
+    cfg = {
+        "orgs": ["readable-org", "invisible-org"],
+        "include": set(),
+        "exclude": set(),
+        "exclude_archived": True,
+        "exclude_forks": True,
+        "private_repos": "aggregate",
+        "cache_ttl_seconds": 300,
+    }
+    monkeypatch.setattr(gh, "load_config", lambda: cfg)
+    gh.reset_cache()
+    return cfg
+
+
+def _login_of(request) -> str:
+    import json
+
+    return json.loads(request.content)["variables"]["login"]
+
+
+@respx.mock
+async def test_one_unreadable_org_does_not_take_down_the_others(
+    client, dashboard, monkeypatch
+) -> None:
+    _two_orgs(monkeypatch)
+
+    def route(request):
+        if _login_of(request) == "readable-org":
+            return httpx.Response(200, json=_page([_repo("visible", rollup="SUCCESS")]))
+        # GitHub answers an org it cannot resolve or cannot show you the
+        # same way: data.organization is null.
+        return httpx.Response(200, json={"data": {"organization": None}})
+
+    respx.post(GRAPHQL).mock(side_effect=route)
+
+    resp = await client.get("/v1/github/status")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    assert [r["name"] for r in data["repositories"]] == ["visible"]
+    assert data["unavailable_orgs"] == [
+        {"login": "invisible-org", "reason": "not_found_or_no_access"}
+    ]
+    # The readable org's numbers are still whole.
+    assert data["totals"]["repositories"] == 1
+
+
+@respx.mock
+async def test_every_org_failing_is_still_an_upstream_error(
+    client, dashboard, monkeypatch
+) -> None:
+    """A bad token fails every org, and there is nothing truthful to render.
+
+    The 502 still carries why. A single-org deployment can never reach the
+    partial-success path, so without this the most likely misconfiguration
+    would be the least diagnosable one.
+    """
+    _two_orgs(monkeypatch)
+    respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(401, json={"message": "Bad credentials"})
+    )
+
+    resp = await client.get("/v1/github/status")
+    assert resp.status_code == 502
+    error = resp.json()["error"]
+    assert error["code"] == "upstream_error"
+    assert error["details"]["orgs"] == [
+        {"login": "readable-org", "reason": "unauthorized"},
+        {"login": "invisible-org", "reason": "unauthorized"},
+    ]
+
+
+@respx.mock
+async def test_single_org_failure_names_the_org_and_reason(client, dashboard) -> None:
+    """The shipped config has exactly one org — this is the real shape."""
+    respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(200, json={"data": {"organization": None}})
+    )
+
+    resp = await client.get("/v1/github/status")
+    assert resp.status_code == 502
+    assert resp.json()["error"]["details"]["orgs"] == [
+        {"login": "test-org", "reason": "not_found_or_no_access"}
+    ]
+
+
+@respx.mock
+async def test_unavailable_reason_never_leaks_github_error_text(
+    client, dashboard, monkeypatch
+) -> None:
+    """The route is public: the category ships, the message stays in the logs."""
+    _two_orgs(monkeypatch)
+    secret = "Could not resolve to an Organization with the login of 'invisible-org'"
+
+    def route(request):
+        if _login_of(request) == "readable-org":
+            return httpx.Response(200, json=_page([_repo("visible")]))
+        return httpx.Response(
+            200, json={"data": {"organization": None}, "errors": [{"message": secret}]}
+        )
+
+    respx.post(GRAPHQL).mock(side_effect=route)
+
+    resp = await client.get("/v1/github/status")
+    assert resp.status_code == 200
+    assert secret not in resp.text
+    assert resp.json()["data"]["unavailable_orgs"][0]["reason"] == (
+        "not_found_or_no_access"
+    )

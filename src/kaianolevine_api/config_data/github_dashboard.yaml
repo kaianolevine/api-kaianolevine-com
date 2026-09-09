@@ -14,9 +14,25 @@ version: 1
 cache_ttl_seconds: 300
 
 # Organizations to enumerate. One GraphQL query per org per refresh.
+#
+# ONE ENTRY, and adding a second is not a one-line change. A fine-grained
+# personal access token is limited to a single resource owner — GitHub lists
+# multi-org access as a known gap — so the token that reads this org cannot
+# read another one. Adding `dance-geek-productions` here in Sep 2026 took the
+# whole board to 502 for exactly that reason.
+#
+# To cover a second org, pick one first:
+#   - a classic PAT (spans every org, but `repo` is read AND write, on a
+#     token reachable from a public unauthenticated endpoint), or
+#   - a token per org, which needs a code change here and in
+#     services/github_dashboard.py, or
+#   - a GitHub App installed on both orgs.
+#
+# Since Sep 2026 an unreadable org no longer blanks the board — it is skipped
+# and reported in `unavailable_orgs`. That makes the mistake visible rather
+# than fatal; it does not make the org readable.
 orgs:
   - mini-app-polis
-  - dance-geek-productions
 
 # Allowlist, "org/name". When non-empty, ONLY these repos are considered
 # and every other filter below still applies to them. Normally empty.
