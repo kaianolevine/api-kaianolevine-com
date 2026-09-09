@@ -123,8 +123,13 @@ async def _reconcile_identity_registry() -> None:
         # deploy reports success. Sentry is initialised with the FastAPI
         # integration only, so a warning-level log here was a breadcrumb
         # attached to nothing.
-        sentry_sdk.capture_exception(exc)
         with contextlib.suppress(Exception):
+            # Same rule as the middleware: the type and a Sentry id, never
+            # the exception's message. A DBAPI error raised in here renders
+            # its statement and the driver's own text, and this is a chat
+            # channel. _fault_detail does the capture, so the explicit one
+            # above is folded into it.
+            detail = activity._fault_detail(exc)
             await discord.send_message(
                 settings=get_settings(),
                 payload={
@@ -134,8 +139,8 @@ async def _reconcile_identity_registry() -> None:
                             "color": 0xDA3633,
                             "description": (
                                 "Declared machine principals were not applied at "
-                                f"boot: `{type(exc).__name__}: {exc}`. Any role "
-                                "revocation in this deploy did not take effect."
+                                f"boot: `{detail}`. Any role revocation in this "
+                                "deploy did not take effect."
                             ),
                             "footer": {"text": get_settings().ENVIRONMENT},
                         }

@@ -175,6 +175,39 @@ async def test_reconcile_failure_reports_and_still_boots(
 
 
 @pytest.mark.asyncio
+async def test_reconcile_failure_message_carries_no_row_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reconcile embed obeys the same rule as the middleware."""
+    from sqlalchemy.exc import IntegrityError
+
+    sent: list[dict] = []
+
+    async def _explode(_session) -> dict[str, int]:
+        raise IntegrityError(
+            "INSERT INTO identity_principals (subject) VALUES (?)",
+            ("Kristen Wallace — private lesson notes",),
+            Exception("UNIQUE constraint failed"),
+        )
+
+    async def _capture(*, settings, payload) -> bool:
+        sent.append(payload)
+        return True
+
+    monkeypatch.setattr(reg, "reconcile", _explode)
+    monkeypatch.setattr(discord, "send_message", _capture)
+
+    async with main_mod.lifespan(main_mod.app):
+        pass
+
+    assert len(sent) == 1
+    description = sent[0]["embeds"][0]["description"]
+    assert "IntegrityError" in description
+    assert "Kristen Wallace" not in description
+    assert "INSERT INTO" not in description
+
+
+@pytest.mark.asyncio
 async def test_reconcile_failure_survives_a_dead_discord(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
