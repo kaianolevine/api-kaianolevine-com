@@ -1,3 +1,10 @@
+## [1.53.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.53.0...v1.53.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* ci guard ([9db0059](https://github.com/mini-app-polis/api-kaianolevine-com/commit/9db0059e03cb37ab1c27f18872b92a1738991231))
+
 # [1.53.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.52.2...v1.53.0) (2026-09-08)
 
 
