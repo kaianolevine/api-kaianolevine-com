@@ -510,3 +510,52 @@ async def test_branch_counts_are_reported_per_repo_and_in_totals(
     # Private branches are counted, like every other private number.
     assert data["orgs"][0]["private"]["branches"] == 6
     assert data["totals"]["branches"] == 21
+
+
+@respx.mock
+async def test_full_disclosure_lists_private_repos_and_marks_them(
+    client, dashboard, monkeypatch
+) -> None:
+    """`private_repos: full` lists them as rows, flagged, with no aggregate."""
+    cfg = dashboard()
+    cfg["private_repos"] = "full"
+    monkeypatch.setattr(gh, "load_config", lambda: cfg)
+    gh.reset_cache()
+
+    respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(
+            200,
+            json=_page(
+                [
+                    _repo("open-source", rollup="SUCCESS"),
+                    _repo("client-work", private=True, rollup="FAILURE"),
+                ]
+            ),
+        )
+    )
+
+    data = (await client.get("/v1/github/status")).json()["data"]
+
+    assert data["private_disclosure"] == "full"
+    by_name = {r["name"]: r["private"] for r in data["repositories"]}
+    assert by_name == {"client-work": True, "open-source": False}
+    # No aggregate row: nothing is being withheld to summarize.
+    assert data["orgs"][0]["private"] is None
+    assert data["orgs"][0]["listed_repo_count"] == 2
+    assert data["totals"]["repositories"] == 2
+
+
+@respx.mock
+async def test_aggregate_still_withholds_the_private_flag_entirely(
+    client, dashboard
+) -> None:
+    """Under the default, a private repo is not a row, so nothing to flag."""
+    respx.post(GRAPHQL).mock(
+        return_value=httpx.Response(
+            200,
+            json=_page([_repo("open-source"), _repo("client-work", private=True)]),
+        )
+    )
+    data = (await client.get("/v1/github/status")).json()["data"]
+    assert [r["private"] for r in data["repositories"]] == [False]
+    assert "client-work" not in (await client.get("/v1/github/status")).text

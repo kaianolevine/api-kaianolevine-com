@@ -377,6 +377,7 @@ def _repo_status(node: dict[str, Any], login: str) -> GithubRepoStatus:
     return GithubRepoStatus(
         org=login,
         name=str(node.get("name") or ""),
+        private=bool(node.get("isPrivate")),
         url=str(node.get("url") or ""),
         description=node.get("description"),
         language=language.get("name"),

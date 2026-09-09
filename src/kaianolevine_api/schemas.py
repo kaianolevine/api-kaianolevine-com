@@ -1737,6 +1737,14 @@ class GithubRepoStatus(BaseModel):
 
     org: str = Field(..., description="Owning organization login.")
     name: str = Field(..., description="Repository name, without the org prefix.")
+    private: bool = Field(
+        False,
+        description=(
+            "Whether the repo is private. Only ever true when the committed "
+            "config sets `private_repos: full` — under `aggregate` a private "
+            "repo never becomes a row at all."
+        ),
+    )
     url: str = Field(..., description="Canonical GitHub URL.")
     description: str | None = Field(None, description="Repository description.")
     language: str | None = Field(None, description="Primary language, per GitHub.")
