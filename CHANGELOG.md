@@ -1,3 +1,10 @@
+## [1.54.3](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.2...v1.54.3) (2026-09-09)
+
+
+### Bug Fixes
+
+* adding private repo metadata ([ac0c0bb](https://github.com/mini-app-polis/api-kaianolevine-com/commit/ac0c0bba745562e895a86a176258a85ce39c73cc))
+
 ## [1.54.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.1...v1.54.2) (2026-09-09)
 
 
