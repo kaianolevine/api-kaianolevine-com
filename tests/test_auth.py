@@ -12,8 +12,10 @@ from __future__ import annotations
 import uuid
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 from fastapi import HTTPException
+from identity.errors import CredentialInvalid
 from identity.store import (
     ExplicitGrant,
     Issuer,
@@ -47,7 +49,7 @@ def _subject(sub: str, kind: str = "human") -> VerifiedSubject:
 
 
 # ---------------------------------------------------------------------------
-# verify_bearer — the 401 boundary
+# verify_bearer — the 401/503 boundary
 # ---------------------------------------------------------------------------
 
 
@@ -79,6 +81,63 @@ async def test_unconfigured_service_rejects_rather_than_admits(
     with pytest.raises(HTTPException) as exc:
         await verify_bearer("Bearer anything", _Empty())  # type: ignore[arg-type]
     assert exc.value.status_code == 401
+
+
+def _verifier_raising(exc: Exception) -> object:
+    class _Verifier:
+        verify = AsyncMock(side_effect=exc)
+
+    return _Verifier()
+
+
+@pytest.mark.asyncio
+async def test_credential_failure_still_raises_401(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The credential was judged and found bad — that is still a 401."""
+    monkeypatch.setattr(
+        auth_mod,
+        "get_verifier",
+        lambda settings=None: _verifier_raising(CredentialInvalid("bad signature")),
+    )
+    with pytest.raises(HTTPException) as exc:
+        await verify_bearer("Bearer token", _SettingsShim())  # type: ignore[arg-type]
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_unreachable_issuer_raises_503_not_401(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A JWKS fetch that never connects leaves the credential unjudged.
+
+    401 would tell the caller their session is invalid, and a client that
+    believes it logs them out over an outage that self-heals.
+    """
+    monkeypatch.setattr(
+        auth_mod,
+        "get_verifier",
+        lambda settings=None: _verifier_raising(
+            httpx.ConnectError("All connection attempts failed")
+        ),
+    )
+    with pytest.raises(HTTPException) as exc:
+        await verify_bearer("Bearer token", _SettingsShim())  # type: ignore[arg-type]
+    assert exc.value.status_code == 503
+    assert exc.value.detail["code"] == "auth_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_issuer_timeout_raises_503(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every httpx transport failure maps the same way, not just ConnectError."""
+    monkeypatch.setattr(
+        auth_mod,
+        "get_verifier",
+        lambda settings=None: _verifier_raising(httpx.ReadTimeout("timed out")),
+    )
+    with pytest.raises(HTTPException) as exc:
+        await verify_bearer("Bearer token", _SettingsShim())  # type: ignore[arg-type]
+    assert exc.value.status_code == 503
 
 
 # ---------------------------------------------------------------------------
