@@ -1,3 +1,16 @@
+# [1.54.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.53.2...v1.54.0) (2026-09-09)
+
+
+### Bug Fixes
+
+* adding dgp to org list ([116f962](https://github.com/mini-app-polis/api-kaianolevine-com/commit/116f962a034dd0b9f245a8aedeaa9b3646e4b92a))
+* **github:** add cached repo status endpoint ([4494151](https://github.com/mini-app-polis/api-kaianolevine-com/commit/4494151fae689e81eddd4c013fca96ddae965fb4))
+
+
+### Features
+
+* **github:** add cached repo status endpoint ([70e569b](https://github.com/mini-app-polis/api-kaianolevine-com/commit/70e569b16edcf6f7bf978574a29658dc382bf9b5))
+
 ## [1.53.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.53.1...v1.53.2) (2026-09-09)
 
 
