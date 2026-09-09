@@ -49,8 +49,17 @@ exclude_forks: true
 #
 #   aggregate — counted into a per-org summary; never named, no titles,
 #               no URLs. The page can say "4 private repos, 1 failing"
-#               without saying which. (default)
+#               without saying which.
 #   hidden    — dropped before shaping. Not counted anywhere.
-#   full      — listed exactly like public repos, names and all. Only
-#               sensible behind auth; this route has none.
-private_repos: aggregate
+#   full      — listed exactly like public repos, and badged private on the
+#               page. This route is unauthenticated, so `full` publishes
+#               every listed repo's name, URL, description, language,
+#               default branch and last-push time to anyone with the link.
+#               Issue and pull-request titles are never fetched and so can
+#               never appear, whatever this is set to.
+#
+# Set to `full` deliberately in Sep 2026: the fleet is the portfolio, and a
+# repo you cannot name is not evidence of anything. The exposure that comes
+# with it is the description field — review descriptions before adding a
+# private repo, not after.
+private_repos: full
