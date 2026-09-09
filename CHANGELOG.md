@@ -1,3 +1,10 @@
+## [1.53.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.53.1...v1.53.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* **auth:** return 503 when the identity provider is unreachable ([d4a7c6e](https://github.com/mini-app-polis/api-kaianolevine-com/commit/d4a7c6e1a0b65fdfb14e217e12b1df33f5ba8892))
+
 ## [1.53.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.53.0...v1.53.1) (2026-09-09)
 
 
