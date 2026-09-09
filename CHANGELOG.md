@@ -1,3 +1,10 @@
+# [1.55.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.4...v1.55.0) (2026-09-09)
+
+
+### Features
+
+* **notifications:** report committed data changes and server faults to discord ([4fdff6f](https://github.com/mini-app-polis/api-kaianolevine-com/commit/4fdff6f9c2c8c494ae0524fe446224c929f698f3))
+
 ## [1.54.4](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.3...v1.54.4) (2026-09-09)
 
 
