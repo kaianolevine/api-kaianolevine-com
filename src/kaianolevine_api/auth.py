@@ -44,6 +44,7 @@ import os
 from collections.abc import Mapping
 from functools import lru_cache
 
+import httpx
 from fastapi import Depends, Header, Request
 from identity.apikey import ApiKeyVerifier
 from identity.chain import ChainVerifier
@@ -160,7 +161,13 @@ def get_verifier(settings: Settings | None = None) -> ChainVerifier:
 async def verify_bearer(
     authorization: str | None, settings: Settings
 ) -> VerifiedSubject:
-    """Verify the Authorization header. Raises 401 on any failure.
+    """Verify the Authorization header. Raises 401 on any credential failure.
+
+    A transport failure reaching the issuer is not a credential failure and
+    raises 503 instead. Verification is offline against cached JWKS, so the
+    only request that touches the network is a cold start or the first one
+    after the cache TTL expires — but when that request is the one that fails,
+    the credential is unjudged rather than bad.
 
     Header parity with the fleet's client (ecosystem-standards AUTH-002):
     ``KaianoApiClient`` in common-python-utils (``mini_app_polis.api.client``)
@@ -186,6 +193,23 @@ async def verify_bearer(
                 logger.warning(
                     with_log_prefix(LOG_WARNING, f"credential rejected: {exc!r}")
                 )
+            except httpx.HTTPError as exc:
+                # The issuer was unreachable, so the credential was never
+                # judged. 401 would say it was judged and found bad, and a
+                # client that believes that clears the session and bounces the
+                # user to login — turning a blip that self-heals on the next
+                # request into a logout. 503 says the same thing this service
+                # already says when a dependency it needs is not there.
+                logger.warning(
+                    with_log_prefix(
+                        LOG_WARNING, f"identity provider unreachable: {exc!r}"
+                    )
+                )
+                raise api_error(
+                    503,
+                    "auth_unavailable",
+                    "Identity provider unreachable; retry shortly",
+                ) from exc
 
     raise api_error(401, "unauthorized", "Valid Bearer token required")
 
