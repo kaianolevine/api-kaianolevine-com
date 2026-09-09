@@ -44,6 +44,10 @@ from .routers import (
 )
 from .schemas import ErrorDetail, ErrorEnvelope
 
+# Imported for its side effect as well as its middleware: importing it is
+# what registers the SQLAlchemy listeners that tally data changes.
+from .services import activity
+
 logger = get_logger()
 
 
@@ -128,6 +132,11 @@ def _build_app() -> FastAPI:
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
+
+    # Added after CORS, so it wraps it: this needs to see the status that
+    # actually went on the wire, and to be inside the server-error handler
+    # below so an unhandled exception reaches it as a raise.
+    app.middleware("http")(activity.activity_middleware)
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
