@@ -30,6 +30,10 @@ def _get_engine(database_url: str):
         database_url,
         echo=False,
         pool_pre_ping=True,
+        # Keeps bound parameters out of every DBAPI exception's string
+        # form, which is what anything rendering that exception — a log
+        # line, a traceback, a notification — would otherwise carry.
+        hide_parameters=True,
         connect_args=connect_args,
         poolclass=poolclass,
     )

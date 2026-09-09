@@ -21,7 +21,13 @@ What this does not see, stated here rather than left to be discovered:
 this service did not open. ORM-enabled Core ``insert()``, ``update()``
 and ``delete()`` are seen, but their row counts are not — the event that
 names the table fires before the statement runs — so they are counted as
-statements and rendered as such.
+statements and rendered as such. An exception raised after the response
+has started — a lazily streamed body, e.g. ``GET /v1/resume`` pulling the
+PDF from Drive — never reaches this middleware either: Starlette re-raises
+it after ``dispatch_func`` has already returned, so the middleware takes
+its success branch and the caller sees a truncated 200. Sentry's ASGI
+integration does catch it; Discord cannot without wrapping every streaming
+response body.
 
 The one machine failure this cannot attribute is a credential that does
 not verify: the 401 happens before the caller is identified. That case is
@@ -32,7 +38,11 @@ success it did not get; ``services.discord`` owns what happens to a
 failed delivery. Durable delivery would mean an outbox row written inside
 the change's own transaction and a drain to empty it — deferred, and the
 thing that changes the decision is wanting to answer "what changed on
-Tuesday" from the record rather than from the channel.
+Tuesday" from the record rather than from the channel. Nothing derived
+from row data reaches the channel. A fault message carries the
+exception's type and a Sentry id and nothing else, because a DBAPI
+error's string representation contains the statement and its bound
+parameters, and this channel is a chat room.
 """
 
 from __future__ import annotations
@@ -43,6 +53,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
+import sentry_sdk
 from fastapi import Request
 from mini_app_polis.logger import LOG_WARNING, get_logger, with_log_prefix
 from sqlalchemy import event
@@ -332,6 +343,23 @@ async def emit_fault(
 # ---------------------------------------------------------------------------
 
 
+def _fault_detail(exc: BaseException) -> str:
+    """The exception's identity, and deliberately not its message.
+
+    A DBAPI error's ``str()`` carries the failing statement and its bound
+    parameters — ``hide_parameters`` defaults to False — so formatting
+    the exception into this message put note titles, instructor and
+    student names and whole ``notes_json`` payloads into a chat channel.
+
+    The type name is what a person reads to decide whether to go and
+    look. The Sentry id is how they find the rest, behind auth. Nothing
+    that reaches Discord is derived from row data.
+    """
+    event_id = sentry_sdk.capture_exception(exc)
+    name = type(exc).__name__
+    return f"{name} · sentry {event_id}" if event_id else name
+
+
 async def activity_middleware(request: Request, call_next: Any) -> Any:
     """Open a recorder for the request, and report what it did on the way out.
 
@@ -368,7 +396,7 @@ async def activity_middleware(request: Request, call_next: Any) -> Any:
                         path=path,
                         actor=actor,
                         status_code=500,
-                        detail=f"{type(exc).__name__}: {exc}",
+                        detail=_fault_detail(exc),
                     )
                 )
             raise

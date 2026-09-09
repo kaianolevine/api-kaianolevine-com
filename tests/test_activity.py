@@ -155,13 +155,100 @@ async def test_read_only_request_says_nothing(client):
 
 
 @respx.mock
-async def test_denied_human_is_not_reported(client):
-    """A guard doing its job is not news, whatever the status code."""
+async def test_denied_human_is_not_reported(client, monkeypatch):
+    """A guard doing its job is not news — and this must be a real 403.
+
+    The previous version of this test patched an unknown flag, which the
+    default caller is authorized to do, so it asserted on a 404 from the
+    route body and never entered the deny path at all. Breaking the
+    machine-vs-human comparison in is_notifiable_fault would have left it
+    green while every human 403 paged the channel.
+
+    ``GET /v1/flags`` is not scope-guarded, so this hits a write that is.
+    """
+    from unittest.mock import AsyncMock
+
+    from identity.types import VerifiedSubject
+
+    from kaianolevine_api import auth as auth_mod
+
+    monkeypatch.setattr(
+        auth_mod,
+        "verify_bearer",
+        AsyncMock(
+            return_value=VerifiedSubject(
+                issuer="https://clerk.kaianolevine.com",
+                subject="a-human-nobody-registered",
+                kind="human",
+            )
+        ),
+    )
     route = respx.post(DISCORD_URL).mock(return_value=Response(204))
-    resp = await client.patch("/v1/flags/flags.does.not.exist", json={"enabled": True})
-    assert resp.status_code in (403, 404)
+
+    resp = await client.patch(
+        "/v1/flags/flags.deejay_api.ingest_enabled", json={"enabled": True}
+    )
+    assert resp.status_code == 403
+
     await _drain()
     assert route.call_count == 0
+
+
+@respx.mock
+async def test_machine_4xx_is_reported(client, monkeypatch):
+    """The wiring test for the one thing auth.py was changed for.
+
+    ``GET /v1/flags`` is not scope-guarded, so this hits a write that is —
+    the path that actually stamps ``request.state.caller_kind`` and returns
+    a machine 403 the middleware can see.
+    """
+    from unittest.mock import AsyncMock
+
+    from identity.types import VerifiedSubject
+
+    from kaianolevine_api import auth as auth_mod
+
+    monkeypatch.setattr(
+        auth_mod,
+        "verify_bearer",
+        AsyncMock(
+            return_value=VerifiedSubject(
+                issuer="apikey",
+                subject="an-unregistered-cog",
+                kind="machine",
+            )
+        ),
+    )
+    route = respx.post(DISCORD_URL).mock(return_value=Response(204))
+
+    resp = await client.patch(
+        "/v1/flags/flags.deejay_api.ingest_enabled", json={"enabled": True}
+    )
+    assert resp.status_code == 403
+
+    await _drain()
+    assert route.call_count == 1
+    body = route.calls[0].request.content.decode()
+    assert "403" in body
+
+
+@respx.mock
+async def test_fault_detail_carries_no_row_data():
+    """A DBAPI error's message must never reach the channel."""
+    from sqlalchemy.exc import IntegrityError
+
+    from kaianolevine_api.services import activity
+
+    exc = IntegrityError(
+        "INSERT INTO wcs_notes (title) VALUES (?)",
+        ("Kristen Wallace — private lesson notes",),
+        Exception("UNIQUE constraint failed"),
+    )
+    detail = activity._fault_detail(exc)
+
+    assert "IntegrityError" in detail
+    assert "Kristen Wallace" not in detail
+    assert "INSERT INTO" not in detail
 
 
 @respx.mock
@@ -187,4 +274,4 @@ async def test_unhandled_exception_is_reported_and_re_raised():
     assert route.call_count == 1
     body = route.calls[0].request.content.decode()
     assert "RuntimeError" in body
-    assert "the thing broke" in body
+    assert "the thing broke" not in body
