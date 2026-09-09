@@ -1750,6 +1750,11 @@ class GithubRepoStatus(BaseModel):
     open_issues: int = Field(
         0, ge=0, description="Open issue count, excluding pull requests."
     )
+    branches: int = Field(
+        0,
+        ge=0,
+        description="Branches on the repo — every ref under refs/heads, default branch included.",
+    )
     pushed_at: dt.datetime | None = Field(
         None, description="Last push to any branch, per GitHub."
     )
@@ -1764,6 +1769,7 @@ class GithubPrivateSummary(BaseModel):
     )
     open_pull_requests: int = Field(0, ge=0, description="Open PRs across those repos.")
     open_issues: int = Field(0, ge=0, description="Open issues across those repos.")
+    branches: int = Field(0, ge=0, description="Branches across those repos.")
 
 
 class GithubOrgSummary(BaseModel):
@@ -1807,6 +1813,7 @@ class GithubTotals(BaseModel):
     repositories: int = Field(0, ge=0, description="Every repo counted, listed or not.")
     open_pull_requests: int = Field(0, ge=0, description="Open PRs across the fleet.")
     open_issues: int = Field(0, ge=0, description="Open issues across the fleet.")
+    branches: int = Field(0, ge=0, description="Branches across the fleet.")
     builds: GithubBuildCounts = Field(..., description="Build states across the fleet.")
 
 

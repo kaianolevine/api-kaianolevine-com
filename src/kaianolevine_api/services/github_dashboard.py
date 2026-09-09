@@ -124,6 +124,7 @@ query($login: String!, $cursor: String, $pageSize: Int!) {
         }
         pullRequests(states: OPEN) { totalCount }
         issues(states: OPEN) { totalCount }
+        refs(refPrefix: "refs/heads/", first: 1) { totalCount }
       }
     }
   }
@@ -220,6 +221,27 @@ def _reason_for_status(response: httpx.Response) -> str:
     return "unreachable"
 
 
+def _describe_graphql_errors(errors: list[dict[str, Any]]) -> str:
+    """Summarize GraphQL errors by the FIELD each one failed on.
+
+    A permission gap arrives as one error per offending field per repo —
+    dozens of identical messages that say what went wrong and never where.
+    The `path` is the part that names the missing permission: `issues` means
+    Issues, `pullRequests` means Pull requests, `statusCheckRollup` means
+    Checks and Commit statuses. Logging the messages alone, which is what
+    this did first, turns a one-line diagnosis into a guess.
+    """
+    fields = sorted(
+        {
+            str((error.get("path") or ["<no path>"])[-1])
+            for error in errors
+            if isinstance(error, dict)
+        }
+    )
+    sample = str((errors[0] or {}).get("message", "")) if errors else ""
+    return f"{len(errors)} error(s) on field(s): {', '.join(fields)} — {sample}"
+
+
 def _reason_for_graphql(messages: str) -> str:
     """Map GraphQL error text onto a public-safe reason."""
     lowered = messages.lower()
@@ -278,8 +300,13 @@ async def _query_org(
         # GraphQL reports partial failures in a 200. Treat them as failures
         # for this org rather than silently publishing a short board.
         if body.get("errors"):
-            messages = "; ".join(str(e.get("message", "")) for e in body["errors"][:3])
-            raise OrgUnavailable(login, _reason_for_graphql(messages), messages)
+            raise OrgUnavailable(
+                login,
+                _reason_for_graphql(
+                    " ".join(str(e.get("message", "")) for e in body["errors"])
+                ),
+                _describe_graphql_errors(body["errors"]),
+            )
 
         org = (body.get("data") or {}).get("organization")
         if not org:
@@ -357,6 +384,7 @@ def _repo_status(node: dict[str, Any], login: str) -> GithubRepoStatus:
         build=_build_state(node),
         open_pull_requests=int((node.get("pullRequests") or {}).get("totalCount", 0)),
         open_issues=int((node.get("issues") or {}).get("totalCount", 0)),
+        branches=int((node.get("refs") or {}).get("totalCount", 0)),
         pushed_at=_parse_ts(node.get("pushedAt")),
     )
 
@@ -415,6 +443,9 @@ def shape(
                 open_issues=sum(
                     int((n.get("issues") or {}).get("totalCount", 0)) for n in private
                 ),
+                branches=sum(
+                    int((n.get("refs") or {}).get("totalCount", 0)) for n in private
+                ),
             )
 
         orgs.append(
@@ -436,6 +467,9 @@ def shape(
     )
     total_issues = sum(r.open_issues for r in listed) + sum(
         o.private.open_issues for o in orgs if o.private
+    )
+    total_branches = sum(r.branches for r in listed) + sum(
+        o.private.branches for o in orgs if o.private
     )
     listed_counts = _counts([r.build for r in listed])
     builds = GithubBuildCounts(
@@ -462,6 +496,7 @@ def shape(
             repositories=total_repos,
             open_pull_requests=total_prs,
             open_issues=total_issues,
+            branches=total_branches,
             builds=builds,
         ),
     )
