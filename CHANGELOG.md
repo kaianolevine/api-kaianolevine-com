@@ -1,3 +1,10 @@
+## [1.54.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.1...v1.54.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* adding branch count ([c954190](https://github.com/mini-app-polis/api-kaianolevine-com/commit/c954190a51b5caea5f6e1e1d87b978cecb5e50d7))
+
 ## [1.54.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.0...v1.54.1) (2026-09-09)
 
 
