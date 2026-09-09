@@ -16,6 +16,7 @@ cache_ttl_seconds: 300
 # Organizations to enumerate. One GraphQL query per org per refresh.
 orgs:
   - mini-app-polis
+  - dance-geek-productions
 
 # Allowlist, "org/name". When non-empty, ONLY these repos are considered
 # and every other filter below still applies to them. Normally empty.
