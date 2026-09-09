@@ -1,3 +1,10 @@
+## [1.54.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.54.0...v1.54.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* adding specific token ([2421774](https://github.com/mini-app-polis/api-kaianolevine-com/commit/24217743e01bfd17c6ce9bb21b3c2f626595594a))
+
 # [1.54.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.53.2...v1.54.0) (2026-09-09)
 
 
